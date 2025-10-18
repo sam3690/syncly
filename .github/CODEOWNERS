@@ -1,0 +1,9 @@
+# See https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# Lines below define owners for each path. Owners will be requested for review on pull requests that touch the matching files.
+
+* @sam3690
+agents/** @sam3690
+frontend/** @sam3690
+backend/** @sam3690
+infra/** @sam3690
+.github/** @sam3690

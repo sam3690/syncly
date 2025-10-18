@@ -51,9 +51,11 @@ export function Header() {
           <Settings className="h-5 w-5" />
         </Button>
 
-        <UserChip />
-        <LoginButton />
-        <LogoutButton />
+        <div className="flex items-center gap-3">
+          <UserChip />
+          <LoginButton />
+          <LogoutButton />
+        </div>
       </div>
     </header>
   );

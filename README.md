@@ -16,7 +16,7 @@ One-stop project management app built during Hackathon MLH Hackfest.
 1. Install dependencies with `npm ci` inside both `frontend/` and `backend/` directories.
 2. Start the backend API: `npm run dev` within `backend/` (listens on port 4000 and serves `/health`).
 3. In a second terminal start the frontend: `npm run dev` within `frontend/` (Vite dev server on port 5173).
-4. Ensure the frontend knows where to find the API by setting `VITE_API_URL=http://localhost:4000` (either in an `.env` file or the shell before running `npm run dev`).
+4. Start frontend with `npm run dev` on port = `http://localhost:4000`.
 
 ## Local Development (with Docker)
 ```

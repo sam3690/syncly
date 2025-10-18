@@ -1,27 +1,56 @@
 const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const { expressjwt: jwt } = require("express-jwt");
+const jwksRsa = require("jwks-rsa");
+
+dotenv.config();
 
 const app = express();
-const port = process.env.PORT ? Number(process.env.PORT) : 4000;
+const PORT = process.env.PORT || 4000;
 
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:8080"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
-app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok", service: "syncly-backend" });
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "syncly-backend" });
 });
 
-app.get("/api/v1/info", (_req, res) => {
-  res.status(200).json({
+app.get("/api/v1/info", (req, res) => {
+  res.json({
     name: "Syncly API",
-    version: process.env.npm_package_version || "dev",
-    timestamp: new Date().toISOString()
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
   });
 });
 
-app.use((req, res) => {
-  res.status(404).json({ error: `Route ${req.path} not found` });
+const domain = process.env.AUTH0_DOMAIN;
+const audience = process.env.AUTH0_AUDIENCE;
+
+const requireAuth = jwt({
+  secret: jwksRsa.expressJwtSecret({
+    jwksUri: `https://${domain}/.well-known/jwks.json`,
+    cache: true,
+    rateLimit: true,
+    jwksRequestsPerMinute: 10,
+  }),
+  audience: audience,
+  issuer: `https://${domain}/`,
+  algorithms: ["RS256"],
 });
 
-app.listen(port, () => {
-  // Lightweight runtime log to confirm server boot
-  console.log(`Syncly backend listening on port ${port}`);
+app.get("/secure/ping", requireAuth, (req, res) => {
+  res.json({
+    ok: true,
+    user: req.auth,
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Syncly backend listening on port ${PORT}`);
 });

@@ -18,10 +18,10 @@ export default function AuthProvider({ children }: Props) {
       domain={domain}
       clientId={clientId}
       authorizationParams={{
-        redirect_uri: redirectUri,
-        // audience: import.meta.env.VITE_AUTH0_AUDIENCE || undefined, // later
+        redirect_uri: window.location.origin,
+        audience: import.meta.env.VITE_AUTH0_AUDIENCE || undefined,
       }}
-      cacheLocation="localstorage" 
+      cacheLocation="localstorage"
     >
       {children}
     </Auth0Provider>

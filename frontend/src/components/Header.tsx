@@ -6,9 +6,12 @@ import HealthBadge from "@/components/HealthBadge";
 import LoginButton from "@/components/auth/LoginButton";
 import LogoutButton from "@/components/auth/LogoutButton";
 import UserChip from "@/components/auth/UserChip";
+import SecurePing from "@/components/SecurePing";
 
 export function Header() {
   const [isDark, setIsDark] = useState(false);
+
+  const showDiag = import.meta.env.VITE_ENABLE_DIAGNOSTICS === "true";
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains("dark");
@@ -56,6 +59,7 @@ export function Header() {
           <LoginButton />
           <LogoutButton />
         </div>
+        {showDiag && <SecurePing />}
       </div>
     </header>
   );

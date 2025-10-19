@@ -1,50 +1,35 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version change: N/A → 1.0.0 (MAJOR: Initial constitution creation)
+- Added principles: Code Quality, Testing Standards, User Experience Consistency, Performance Requirements
+- Added sections: Additional Constraints, Development Workflow
+- Templates requiring updates: ⚠ pending - plan-template.md (constitution check section needs to be populated based on principles)
+- Follow-up TODOs: None
+-->
+
+# syncly Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### Code Quality
+All code must adhere to high standards of readability, maintainability, and efficiency. Use consistent coding conventions across Python, JavaScript, and other languages. Avoid code duplication through proper abstraction. Ensure comprehensive documentation for all public APIs and complex logic. Code reviews are mandatory for all changes, with automated linting and formatting enforced.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### Testing Standards
+Comprehensive testing is required for all features. Unit tests must achieve at least 80% code coverage. Integration tests must cover critical user paths. End-to-end tests must validate complete user workflows. All tests must be automated and integrated into CI/CD pipelines. Test-driven development is encouraged for new features.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### User Experience Consistency
+Maintain consistent user interfaces and interactions across all platforms (web, mobile, API). Follow established design patterns and component libraries. Ensure WCAG 2.1 AA accessibility standards. Provide intuitive navigation and clear error messaging. User feedback must be systematically collected and incorporated into development cycles.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### Performance Requirements
+Applications must meet defined performance benchmarks. API response times must be under 2 seconds for 95th percentile. Frontend interactions must be under 100ms. Efficient resource usage with memory and CPU limits. Scalable architecture supporting horizontal scaling. Regular performance monitoring and optimization are mandatory.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+## Additional Constraints
+Technology stack: Python 3.13 with uv, Node.js with npm, Docker for containerization. Security: Implement OWASP guidelines, regular security audits, encrypted data storage. Compliance: GDPR for data handling, accessibility standards, open source license compatibility.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
-
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow
+Use Git Flow with feature branches. Pull requests require CI passing and code review approval. Automated testing in CI/CD pipelines. Semantic versioning for releases. Regular security and dependency updates. Documentation updates required for API changes.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+This constitution supersedes all other practices. Amendments require documentation, team approval, and migration plan. All pull requests must verify compliance with principles. Complexity must be justified with performance and maintainability rationale. Use this constitution for resolving conflicts in development practices.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-10-19 | **Last Amended**: 2025-10-19

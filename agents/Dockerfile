@@ -15,9 +15,20 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 # Install the project
 RUN uv sync --frozen --no-dev
+ 
+# Install runtime deps for health server
+RUN uv pip install fastapi uvicorn --no-deps
 
 # Set environment
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Run tests by default
+# Expose health endpoint port
+EXPOSE 8085
+
+# Provide an entrypoint script to run the health server or execute CLI
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Default entrypoint runs tests; override to run server or CLI
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["pytest", "tests/"]

@@ -14,5 +14,6 @@ async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  get: <T>(path: string, init?: RequestInit) => fetchJSON<T>(path, init),
+  API_BASE,
+  get:  <T>(path: string, init?: RequestInit) => fetchJSON<T>(path, init),
 };

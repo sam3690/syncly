@@ -1,9 +1,9 @@
-import { 
-  LayoutDashboard, 
-  Workflow, 
-  Users, 
-  BarChart3, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Workflow,
+  Users,
+  BarChart3,
+  Settings,
   Zap,
   Calendar,
   FileText,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Activity } from "lucide-react"; 
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -19,6 +20,7 @@ const navigation = [
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Calendar", href: "/calendar", icon: Calendar },
   { name: "Reports", href: "/reports", icon: FileText },
+  { name: "Activity", href: "/activity", icon: Activity },
   { name: "AI Insights", href: "/ai-insights", icon: Zap },
   { name: "Notifications", href: "/notifications", icon: Bell },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -62,7 +64,9 @@ export function Sidebar() {
                 </>
               )}
             </NavLink>
+
           ))}
+
         </nav>
 
         {/* User Profile */}

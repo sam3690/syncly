@@ -1,10 +1,12 @@
+// frontend/src/pages/Workflows.tsx
+import React, { useMemo, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, MoreVertical, Clock, Users, TrendingUp } from "lucide-react";
+import { Plus, Search, Filter as FilterIcon, MoreVertical, Clock, Users, TrendingUp, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,88 +14,178 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
+import { useWorkflows } from "@/hooks/useWorkflows";
+import type { Workflow } from "@/types/workflow";
+import CreateWorkflowDialog from "@/components/CreateWorkflowDialog";
+import { useAuth0 } from "@auth0/auth0-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { createWorkflowAuth, updateWorkflowAuth, deleteWorkflowAuth } from "@/api/workflows";
 
-const workflows = [
-  {
-    id: 1,
-    name: "Customer Onboarding",
-    description: "Automated customer onboarding process",
-    status: "active",
-    progress: 75,
-    tasks: 12,
-    members: 5,
-    lastUpdated: "2 hours ago",
-    category: "Sales"
-  },
-  {
-    id: 2,
-    name: "Content Review Pipeline",
-    description: "Multi-stage content review and approval",
-    status: "active",
-    progress: 60,
-    tasks: 8,
-    members: 3,
-    lastUpdated: "5 hours ago",
-    category: "Marketing"
-  },
-  {
-    id: 3,
-    name: "Bug Triage Process",
-    description: "Automated bug tracking and assignment",
-    status: "paused",
-    progress: 45,
-    tasks: 15,
-    members: 7,
-    lastUpdated: "1 day ago",
-    category: "Engineering"
-  },
-  {
-    id: 4,
-    name: "Invoice Processing",
-    description: "Automated invoice review and payment",
-    status: "active",
-    progress: 90,
-    tasks: 6,
-    members: 4,
-    lastUpdated: "30 mins ago",
-    category: "Finance"
-  },
-  {
-    id: 5,
-    name: "HR Recruitment",
-    description: "Candidate screening and interview scheduling",
-    status: "completed",
-    progress: 100,
-    tasks: 10,
-    members: 6,
-    lastUpdated: "3 days ago",
-    category: "HR"
-  },
-  {
-    id: 6,
-    name: "Product Launch",
-    description: "End-to-end product launch workflow",
-    status: "active",
-    progress: 35,
-    tasks: 20,
-    members: 8,
-    lastUpdated: "1 hour ago",
-    category: "Product"
+// ---------- View model + helpers --------------------------------------------
+
+type ViewStatus = "active" | "completed" | "paused";
+type ViewPriority = "high" | "medium" | "low";
+
+type ViewWorkflow = {
+  id: string;
+  name: string;
+  description?: string;
+  status: ViewStatus;
+  progress: number;              // 0..100
+  tasks: number;                 // optional metric
+  members: number;               // optional metric
+  lastUpdated?: string;          // ISO
+  category?: string;             // e.g., Marketing, Engineering
+  priority: ViewPriority;        // derived or supplied
+};
+
+function toViewModel(w: Workflow): ViewWorkflow {
+  const a = w as any; // read optional fields if present later
+  const derivedPriority: ViewPriority =
+    w.completionRate >= 90 ? "low" : w.completionRate >= 50 ? "medium" : "high";
+
+  return {
+    id: w.id,
+    name: w.name ?? "Untitled",
+    description: a.description || undefined,
+    status: (w.status as ViewStatus) ?? "active",
+    progress: Math.max(0, Math.min(100, Math.round(w.completionRate ?? 0))),
+    tasks: Number.isFinite(a.tasks) ? a.tasks : Math.floor((w.completionRate ?? 0) / 5), // placeholder
+    members: Number.isFinite(a.members) ? a.members : Math.max(1, Math.round((w.completionRate ?? 0) / 15)),
+    lastUpdated: w.updatedAt || w.createdAt,
+    category: a.category, // optional
+    priority: (a.priority as ViewPriority) || derivedPriority,
+  };
+}
+
+function timeAgo(iso?: string) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min${mins > 1 ? "s" : ""} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+}
+
+function getStatusColor(status: ViewStatus) {
+  switch (status) {
+    case "active":
+      return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+    case "paused":
+      return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+    case "completed":
+      return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+    default:
+      return "bg-muted text-muted-foreground";
   }
-];
+}
 
-const Workflows = () => {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-      case "paused":
-        return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-      case "completed":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-      default:
-        return "bg-muted text-muted-foreground";
+// ---------- Page -------------------------------------------------------------
+
+const Workflows: React.FC = () => {
+  const { data, isLoading, isError, refetch, isFetching } = useWorkflows();
+  const rows: ViewWorkflow[] = (data ?? []).map(toViewModel);
+
+  // Search + filters
+  const [query, setQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [status, setStatus] = useState<"all" | ViewStatus>("all");
+  const [priority, setPriority] = useState<"all" | ViewPriority>("all");
+  const [category, setCategory] = useState<string>("all");
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => r.category && set.add(r.category));
+    return ["all", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (status !== "all" && r.status !== status) return false;
+      if (priority !== "all" && r.priority !== priority) return false;
+      if (category !== "all" && (r.category || "").toLowerCase() !== category.toLowerCase()) return false;
+
+      if (!q) return true;
+      const hay = [
+        r.name,
+        r.id,
+        r.description || "",
+        r.category || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [rows, status, priority, category, query]);
+
+  const qc = useQueryClient();
+    const { isAuthenticated, loginWithRedirect, getAccessTokenSilently } = useAuth0();
+
+    async function getTokenOrLogin() {
+      if (!isAuthenticated) {
+        await loginWithRedirect();
+        return null;
+      }
+      return getAccessTokenSilently({
+        authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE },
+      });
     }
+
+    async function onEdit(wf: ViewWorkflow) {
+      const newName = window.prompt("Rename workflow", wf.name);
+      if (!newName || newName.trim() === wf.name) return;
+      const token = await getTokenOrLogin();
+      if (!token) return;
+      await updateWorkflowAuth(wf.id, { name: newName.trim() }, token);
+      await qc.invalidateQueries({ queryKey: ["workflows"] });
+    }
+
+    async function onDuplicate(wf: ViewWorkflow) {
+      const token = await getTokenOrLogin();
+      if (!token) return;
+      await createWorkflowAuth(
+        {
+          name: `${wf.name} (Copy)`,
+          description: wf.description,
+          status: wf.status,
+          progress: wf.progress ?? 0,
+          category: wf.category,
+          tasks: (wf as any).tasks,
+          members: (wf as any).members,
+        },
+        token
+      );
+      await qc.invalidateQueries({ queryKey: ["workflows"] });
+    }
+
+    async function onArchive(wf: ViewWorkflow) {
+      const token = await getTokenOrLogin();
+      if (!token) return;
+      // simple archive = set status to "paused"
+      await updateWorkflowAuth(wf.id, { status: "paused" }, token);
+      await qc.invalidateQueries({ queryKey: ["workflows"] });
+    }
+
+    async function onDelete(wf: ViewWorkflow) {
+      if (!window.confirm(`Delete "${wf.name}"? This cannot be undone.`)) return;
+      const token = await getTokenOrLogin();
+      if (!token) return;
+      await deleteWorkflowAuth(wf.id, token);
+      await qc.invalidateQueries({ queryKey: ["workflows"] });
+    }
+
+
+  const clearAll = () => {
+    setQuery("");
+    setStatus("all");
+    setPriority("all");
+    setCategory("all");
   };
 
   return (
@@ -102,93 +194,166 @@ const Workflows = () => {
       <div className="flex-1 ml-64">
         <Header />
         <main className="p-6">
+          {/* Title + Create */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold">Workflows</h1>
-              <p className="text-muted-foreground mt-1">Manage and monitor your automated workflows</p>
+              <p className="text-muted-foreground mt-1">
+                Manage and monitor your automated workflows
+              </p>
             </div>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Workflow
-            </Button>
+            <div className="flex items-center gap-2">
+              <CreateWorkflowDialog />
+            </div>
           </div>
 
-          {/* Filters and Search */}
-          <div className="flex gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search workflows..."
-                className="pl-10"
-              />
+          {/* Search + Filter controls */}
+          <div className="flex flex-col gap-3 mb-6">
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search workflows by name, id or description…"
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setShowFilters((s) => !s)}
+              >
+                <FilterIcon className="h-4 w-4" />
+                Filter
+              </Button>
+              <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? "Refreshing…" : "Refresh"}
+              </Button>
             </div>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filter
-            </Button>
+
+            {showFilters && (
+              <div className="flex flex-wrap items-center gap-3 rounded-md border p-3">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                  title="Status"
+                >
+                  <option value="all">All status</option>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="paused">Paused</option>
+                </select>
+
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                  title="Priority"
+                >
+                  <option value="all">All priority</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                  title="Category"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c === "all" ? "All categories" : c}
+                    </option>
+                  ))}
+                </select>
+
+                <Button variant="ghost" size="sm" className="ml-auto gap-1" onClick={clearAll}>
+                  <X className="h-4 w-4" /> Clear
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Workflows Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {workflows.map((workflow) => (
-              <Card key={workflow.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-1">{workflow.name}</CardTitle>
-                      <CardDescription>{workflow.description}</CardDescription>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                        <DropdownMenuItem>Archive</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline" className={getStatusColor(workflow.status)}>
-                      {workflow.status}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">{workflow.category}</span>
-                  </div>
+          {/* States */}
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground">Loading workflows…</div>
+          ) : isError ? (
+            <div className="text-sm text-destructive">Failed to load workflows.</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No workflows match your filters.</div>
+          ) : (
+            // Grid
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filtered.map((wf) => (
+                <Card key={wf.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg mb-1">{wf.name}</CardTitle>
+                        <CardDescription>
+                          {wf.description || "—"}
+                        </CardDescription>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEdit(wf)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDuplicate(wf)}>Duplicate</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onArchive(wf)}>Archive</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDelete(wf)} className="text-destructive">
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-medium">{workflow.progress}%</span>
                     </div>
-                    <Progress value={workflow.progress} className="h-2" />
-                  </div>
+                  </CardHeader>
 
-                  <div className="flex items-center justify-between pt-2 text-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <TrendingUp className="h-4 w-4" />
-                        <span>{workflow.tasks}</span>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className={getStatusColor(wf.status)}>
+                        {wf.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{wf.category || "—"}</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Progress</span>
+                        <span className="font-medium">{wf.progress}%</span>
+                      </div>
+                      <Progress value={wf.progress} className="h-2" />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 text-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <TrendingUp className="h-4 w-4" />
+                          <span>{wf.tasks}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Users className="h-4 w-4" />
+                          <span>{wf.members}</span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{workflow.members}</span>
+                        <Clock className="h-3 w-3" />
+                        <span className="text-xs">{timeAgo(wf.lastUpdated)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span className="text-xs">{workflow.lastUpdated}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </main>
       </div>
     </div>

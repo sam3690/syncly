@@ -134,3 +134,115 @@ app.delete("/api/v1/workflows/:id", requireAuth, async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.status(204).end();
 });
+
+
+// --- GitHub Integration -----------------------------------------------------------
+const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args)); // if not already installed
+
+// GET /integrations/github/import?since=2025-10-01T00:00:00Z
+app.get("/integrations/github/import", async (req, res) => {
+  try {
+    const since = req.query.since || new Date(Date.now() - 7*24*3600*1000).toISOString();
+    const repo = process.env.GITHUB_REPO;
+    const token = process.env.GITHUB_TOKEN;
+    const workspaceId = process.env.WORKSPACE_ID || "demo";
+
+    if (!repo || !token) return res.status(400).json({ error: "GITHUB_REPO and GITHUB_TOKEN required" });
+
+    // 1) Issues (includes PRs as 'pull_request' field)
+    const issuesResp = await fetch(`https://api.github.com/repos/${repo}/issues?state=all&since=${encodeURIComponent(since)}&per_page=50`, {
+      headers: { Authorization: `Bearer ${token}`, "User-Agent": "syncly-importer" },
+    });
+    if (!issuesResp.ok) throw new Error(`GitHub issues HTTP ${issuesResp.status}`);
+    const issues = await issuesResp.json();
+
+    // 2) Map to activity_events rows
+    const rows = [];
+    for (const it of issues) {
+      const isPR = Boolean(it.pull_request);
+      const type = isPR
+        ? (it.state === "closed" && it.pull_request?.merged_at ? "pr_merged"
+           : it.state === "closed" ? "pr_closed" : "pr_opened")
+        : (it.state === "closed" ? "issue_closed" : "issue_opened");
+
+      rows.push({
+        workspace_id: workspaceId,
+        provider: "github",
+        type,
+        title: it.title,
+        description: it.body?.slice(0, 10000) || null,
+        url: it.html_url,
+        actor: it.user?.login || null,
+        metadata: it, // raw payload
+        occurred_at: it.updated_at || it.created_at || new Date().toISOString(),
+      });
+
+      // Optional: upsert task_status summary
+      await supabase.from("task_status").upsert({
+        workspace_id: workspaceId,
+        provider: "github",
+        external_id: String(it.number),
+        title: it.title,
+        status: it.state === "open" ? "open" : (isPR && it.pull_request?.merged_at ? "merged" : "closed"),
+        assignee: it.assignee?.login || null,
+        url: it.html_url,
+        last_event_at: it.updated_at || it.created_at || null,
+      }, { onConflict: "workspace_id,provider,external_id" });
+    }
+
+    // 3) Bulk insert activities
+    if (rows.length) {
+      const { error } = await supabase.from("activity_events").insert(rows);
+      if (error) throw error;
+    }
+
+    res.json({ imported: rows.length, since });
+  } catch (e) {
+    console.error("[github import]", e);
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// GET /api/v1/activities
+app.get("/api/v1/activities", async (req, res) => {
+  const workspaceId = process.env.WORKSPACE_ID || "demo";
+  const { data, error } = await supabase
+    .from("activity_events")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .order("occurred_at", { ascending: false })
+    .limit(200);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ items: data || [], count: data?.length || 0 });
+});
+
+app.post("/notify/slack/digest", requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from("activity_events")
+    .select("provider, type, title, url, actor, occurred_at")
+    .order("occurred_at", { ascending: false })
+    .limit(10);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const blocks = (data || []).map(ev => `• *${ev.type}*: ${ev.title || "(no title)"} — _${ev.actor || "unknown"}_`).join("\n");
+
+  const payload = {
+    text: "Syncly Digest",
+    blocks: [
+      { type: "section", text: { type: "mrkdwn", text: "*Syncly — Latest Activity*" } },
+      { type: "section", text: { type: "mrkdwn", text: blocks || "No recent activity." } },
+    ],
+  };
+
+  const resp = await fetch(process.env.SLACK_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!resp.ok) return res.status(500).json({ error: `Slack ${resp.status}` });
+  res.json({ ok: true, sent: (data || []).length });
+});
+
+

@@ -55,83 +55,82 @@ app.listen(PORT, () => {
   console.log(`Syncly backend listening on port ${PORT}`);
 });
 
-// --- In-memory workflows store (replace later with DB/Supabase) --------------
-let workflows = [
-  {
-    id: "w1",
-    name: "Customer Onboarding",
-    description: "Automated customer onboarding process",
-    status: "active",
-    progress: 75,
-    tasks: 12,
-    members: 5,
-    lastUpdatedLabel: "2 hours ago",
-    category: "Sales",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "w2",
-    name: "Content Review Pipeline",
-    description: "Multi-stage content review and approval",
-    status: "active",
-    progress: 60,
-    tasks: 8,
-    members: 3,
-    lastUpdatedLabel: "5 hours ago",
-    category: "Marketing",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 // --- Workflows API -----------------------------------------------------------
-app.get("/api/v1/workflows", (req, res) => {
-  res.json({ items: workflows, count: workflows.length });
+const { supabase } = require("./supabase");
+
+/* LIST: GET /api/v1/workflows  (public) */
+app.get("/api/v1/workflows", async (req, res) => {
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("*")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ items: data || [], count: data?.length || 0 });
 });
 
-app.post("/api/v1/workflows", requireAuth, (req, res) => {
+/* CREATE: POST /api/v1/workflows  (protected) */
+app.post("/api/v1/workflows", requireAuth, async (req, res) => {
   const b = req.body || {};
   if (!b.name) return res.status(400).json({ error: "name is required" });
 
-  const now = new Date().toISOString();
-  const item = {
-    id: `w${Math.random().toString(36).slice(2, 7)}`,
-    name: b.name,
-    description: b.description || "",
-    status: b.status || "active",
-    progress: Number.isFinite(b.progress) ? b.progress : 0,
-    tasks: Number.isFinite(b.tasks) ? b.tasks : 0,
-    members: Number.isFinite(b.members) ? b.members : 1,
-    lastUpdatedLabel: "just now",
-    category: b.category || null,
-    createdAt: now,
-    updatedAt: now,
-  };
-  workflows.unshift(item);
-  res.status(201).json(item);
+  // Attach creator (Auth0 sub) for future ownership logic
+  const created_by = req.auth?.sub || null;
+
+  const { data, error } = await supabase
+    .from("workflows")
+    .insert([{
+      name: b.name,
+      description: b.description || "",
+      status: b.status || "active",
+      progress: Number.isFinite(b.progress) ? b.progress : 0,
+      tasks: Number.isFinite(b.tasks) ? b.tasks : 0,
+      members: Number.isFinite(b.members) ? b.members : 1,
+      category: b.category || null,
+      last_updated_label: b.lastUpdatedLabel || "just now",
+      created_by
+    }])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-app.patch("/api/v1/workflows/:id", requireAuth, (req, res) => {
+/* UPDATE: PATCH /api/v1/workflows/:id  (protected) */
+app.patch("/api/v1/workflows/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
-  const idx = workflows.findIndex((w) => w.id === id);
-  if (idx === -1) return res.status(404).json({ error: "not found" });
+  const patch = req.body || {};
 
-  const b = req.body || {};
-  const now = new Date().toISOString();
-  workflows[idx] = {
-    ...workflows[idx],
-    ...b,
-    updatedAt: now,
-    lastUpdatedLabel: "just now",
-  };
-  res.json(workflows[idx]);
+  const { data, error } = await supabase
+    .from("workflows")
+    .update({
+      name: patch.name,
+      description: patch.description,
+      status: patch.status,
+      progress: patch.progress,
+      tasks: patch.tasks,
+      members: patch.members,
+      category: patch.category,
+      last_updated_label: patch.lastUpdatedLabel || "just now",
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return res.status(404).json({ error: "not found" });
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data);
 });
 
-app.delete("/api/v1/workflows/:id", requireAuth, (req, res) => {
+/* DELETE: DELETE /api/v1/workflows/:id  (protected) */
+app.delete("/api/v1/workflows/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
-  const before = workflows.length;
-  workflows = workflows.filter((w) => w.id !== id);
-  if (workflows.length === before) return res.status(404).json({ error: "not found" });
+  const { error } = await supabase.from("workflows").delete().eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).end();
 });

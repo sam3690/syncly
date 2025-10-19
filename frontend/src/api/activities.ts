@@ -10,6 +10,9 @@ export type ActivityEvent = {
   url?: string | null;
   actor?: string | null;
   occurred_at: string;
+  context_type?: string | null;
+  context_id?: string | null;
+  context_label?: string | null;
 };
 
 type ListResp = { items: ActivityEvent[]; count: number };

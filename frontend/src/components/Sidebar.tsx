@@ -36,7 +36,7 @@ export function Sidebar() {
             <Workflow className="h-6 w-6 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-bold text-sidebar-foreground">FlowMate</span>
+            <span className="text-lg font-bold text-sidebar-foreground">Syncly</span>
             <span className="text-xs text-muted-foreground">AI Workflow Tracker</span>
           </div>
         </div>
@@ -77,7 +77,7 @@ export function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">John Doe</p>
-              <p className="text-xs text-muted-foreground truncate">john@flowmate.com</p>
+              <p className="text-xs text-muted-foreground truncate">john@syncly.com</p>
             </div>
           </div>
         </div>

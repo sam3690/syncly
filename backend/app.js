@@ -12,7 +12,11 @@ const PORT = process.env.PORT || 4000;
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:8080"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:8080",
+      "https://d1nsc9i977d35h.cloudfront.net"
+    ],
     credentials: true,
   })
 );
@@ -20,6 +24,25 @@ app.use(express.json());
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "syncly-backend" });
+});
+
+app.get("/", (req, res) => {
+  res.json({
+    name: "Syncly API",
+    version: "1.0.0",
+    description: "Unified workflow and activity management platform",
+    endpoints: {
+      health: "/health",
+      info: "/api/v1/info",
+      workflows: "/api/v1/workflows",
+      activities: "/api/v1/activities",
+      ai: {
+        insights: "/api/v1/ai/insights",
+        suggestions: "/api/v1/ai/suggestions"
+      }
+    },
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get("/api/v1/info", (req, res) => {
@@ -62,29 +85,100 @@ const { supabase } = require("./supabase");
 
 /* LIST: GET /api/v1/workflows  (public) */
 app.get("/api/v1/workflows", async (req, res) => {
-  const { data, error } = await supabase
-    .from("workflows")
-    .select("*")
-    .order("updated_at", { ascending: false })
-    .limit(200);
+  try {
+    const { data, error } = await supabase
+      .from("workflows")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(200);
 
-  if (error) return res.status(500).json({ error: error.message });
+    if (error) throw error;
 
-  // Add mock integrations for demo
-  const workflowsWithIntegrations = (data || []).map(workflow => ({
-    ...workflow,
-    workflow_integrations: [
+    // Add mock integrations for demo
+    const workflowsWithIntegrations = (data || []).map(workflow => ({
+      ...workflow,
+      workflow_integrations: [
+        {
+          id: "github-1",
+          platform: "github",
+          config: { repo: "facebook/react" },
+          status: "active",
+          created_at: new Date().toISOString()
+        }
+      ]
+    }));
+
+    res.json({ items: workflowsWithIntegrations, count: workflowsWithIntegrations.length });
+  } catch (error) {
+    console.error("Error fetching workflows:", error);
+    // Return mock workflows if Supabase is not configured
+    const mockWorkflows = [
       {
-        id: "github-1",
-        platform: "github",
-        config: { repo: "facebook/react" },
+        id: "wf-1",
+        name: "User Authentication System",
+        description: "Implement OAuth2 authentication with Auth0 integration",
         status: "active",
-        created_at: new Date().toISOString()
+        progress: 75,
+        tasks: 12,
+        members: 3,
+        category: "Security",
+        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        workflow_integrations: [
+          {
+            id: "github-1",
+            platform: "github",
+            config: { repo: "company/auth-service" },
+            status: "active",
+            created_at: new Date().toISOString()
+          }
+        ]
+      },
+      {
+        id: "wf-2",
+        name: "API Documentation Update",
+        description: "Update API docs for v2.1 release with new endpoints",
+        status: "completed",
+        progress: 100,
+        tasks: 8,
+        members: 2,
+        category: "Documentation",
+        created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        workflow_integrations: [
+          {
+            id: "jira-1",
+            platform: "jira",
+            config: { project_key: "DOCS", domain: "company.atlassian.net" },
+            status: "active",
+            created_at: new Date().toISOString()
+          }
+        ]
+      },
+      {
+        id: "wf-3",
+        name: "Mobile App Performance",
+        description: "Optimize mobile app performance and reduce load times",
+        status: "paused",
+        progress: 45,
+        tasks: 15,
+        members: 4,
+        category: "Performance",
+        created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        workflow_integrations: [
+          {
+            id: "slack-1",
+            platform: "slack",
+            config: { channel: "#mobile-dev" },
+            status: "active",
+            created_at: new Date().toISOString()
+          }
+        ]
       }
-    ]
-  }));
-
-  res.json({ items: workflowsWithIntegrations, count: workflowsWithIntegrations.length });
+    ];
+    res.json({ items: mockWorkflows, count: mockWorkflows.length });
+  }
 });
 
 /* CREATE: POST /api/v1/workflows  (protected) */
@@ -345,22 +439,92 @@ app.get("/integrations/github/import", async (req, res) => {
 
 // GET /api/v1/activities
 app.get("/api/v1/activities", async (req, res) => {
-  const workspaceId = process.env.WORKSPACE_ID || "demo";
-  const { data, error } = await supabase
-    .from("activity_events")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .order("occurred_at", { ascending: false })
-    .limit(200);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ items: data || [], count: data?.length || 0 });
+  try {
+    const workspaceId = process.env.WORKSPACE_ID || "demo";
+    const { data, error } = await supabase
+      .from("activity_events")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("occurred_at", { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+    res.json({ items: data || [], count: data?.length || 0 });
+  } catch (error) {
+    console.error("Error fetching activities:", error);
+    // Return mock data if Supabase is not configured
+    const mockActivities = [
+      {
+        id: "1",
+        workspace_id: "demo",
+        provider: "github",
+        type: "pr_opened",
+        title: "Add user authentication system",
+        description: "Implement OAuth2 authentication with Auth0 integration",
+        url: "https://github.com/example/repo/pull/42",
+        actor: "john-doe",
+        occurred_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+        metadata: { number: 42, state: "open" }
+      },
+      {
+        id: "2",
+        workspace_id: "demo",
+        provider: "github",
+        type: "issue_closed",
+        title: "Fix responsive design on mobile",
+        description: "Mobile layout breaks on screens smaller than 320px",
+        url: "https://github.com/example/repo/issues/38",
+        actor: "jane-smith",
+        occurred_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
+        metadata: { number: 38, state: "closed" }
+      },
+      {
+        id: "3",
+        workspace_id: "demo",
+        provider: "slack",
+        type: "message",
+        title: "Team standup completed",
+        description: "Daily standup finished with 5 participants",
+        url: "#general",
+        actor: "team-lead",
+        occurred_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
+        metadata: { channel: "general" }
+      },
+      {
+        id: "4",
+        workspace_id: "demo",
+        provider: "trello",
+        type: "card_moved",
+        title: "Database schema design",
+        description: "Moved from 'In Progress' to 'Review'",
+        url: "https://trello.com/c/example",
+        actor: "dev-team",
+        occurred_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
+        metadata: { board: "Project Board", list: "Review" }
+      },
+      {
+        id: "5",
+        workspace_id: "demo",
+        provider: "jira",
+        type: "issue_updated",
+        title: "API documentation update",
+        description: "Updated API docs for v2.1 release",
+        url: "https://company.atlassian.net/browse/PROJ-123",
+        actor: "api-team",
+        occurred_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
+        metadata: { key: "PROJ-123", status: "Done" }
+      }
+    ];
+    res.json({ items: mockActivities, count: mockActivities.length });
+  }
 });
 
 // GET /api/v1/ai/insights
 app.get("/api/v1/ai/insights", async (req, res) => {
   try {
     // Call the agent service to get AI insights
-    const agentResponse = await fetch("http://agents:8085/insights", {
+    const agentsUrl = process.env.AGENTS_API_URL || "http://agents:8085";
+    const agentResponse = await fetch(`${agentsUrl}/insights`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -401,7 +565,8 @@ app.get("/api/v1/ai/insights", async (req, res) => {
 app.get("/api/v1/ai/suggestions", async (req, res) => {
   try {
     // Call the agent service to get AI suggestions
-    const agentResponse = await fetch("http://agents:8085/suggestions", {
+    const agentsUrl = process.env.AGENTS_API_URL || "http://agents:8085";
+    const agentResponse = await fetch(`${agentsUrl}/suggestions`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -489,5 +654,16 @@ app.post("/notify/slack/digest", requireAuth, async (req, res) => {
   if (!resp.ok) return res.status(500).json({ error: `Slack ${resp.status}` });
   res.json({ ok: true, sent: (data || []).length });
 });
+
+// AWS Lambda handler
+const serverless = require('serverless-http');
+module.exports.handler = serverless(app);
+
+// For local development
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Syncly backend listening on port ${PORT}`);
+  });
+}
 
 

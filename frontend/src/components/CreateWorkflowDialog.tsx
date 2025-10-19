@@ -57,8 +57,9 @@ export default function CreateWorkflowDialog() {
       setName("");
       setCategory("");
       await qc.invalidateQueries({ queryKey: ["workflows"] });
-    } catch (e: any) {
-      setError(e?.message || "Failed to create");
+    } catch (e: unknown) {
+      const error = e as Error;
+      setError(error?.message || "Failed to create");
     } finally {
       setSubmitting(false);
     }

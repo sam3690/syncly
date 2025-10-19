@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import protect from "@/components/auth/Protected";
 import ReportsPage from "@/pages/Reports"; 
 import React from "react";
+import WorkflowsPage from "@/pages/Workflows";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={React.createElement(protect(ReportsPage))} />
+          <Route path="/workflows" element={<WorkflowsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

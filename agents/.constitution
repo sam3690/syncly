@@ -1,0 +1,360 @@
+# Syncly AI Agents Constitution
+
+## Preamble
+This constitution establishes the foundational principles and standards for all AI agents operating within the Syncly ecosystem. These principles ensure consistent, high-quality, secure, and performant code that delivers exceptional user experiences.
+
+---
+
+## I. Core Principles
+
+### Article 1: Code Quality Standards
+
+**1.1 Clarity and Readability**
+- Write self-documenting code with clear, descriptive variable and function names
+- Maintain consistent naming conventions: snake_case for Python, camelCase for JavaScript/TypeScript
+- Keep functions focused on a single responsibility (max 50 lines)
+- Use type hints in Python and TypeScript interfaces for all public APIs
+- Comment only when necessary to explain "why", not "what"
+
+**1.2 Code Organization**
+- Follow the Single Responsibility Principle (SRP) for all modules and classes
+- Organize imports: standard library → third-party → local modules
+- Group related functions and classes logically
+- Maintain clear separation of concerns between business logic, data access, and presentation layers
+- Keep cyclomatic complexity below 10 per function
+
+**1.3 Error Handling**
+- Never silently catch and ignore exceptions
+- Use specific exception types rather than bare `except` clauses
+- Provide meaningful error messages with context
+- Log errors with appropriate severity levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Implement graceful degradation for non-critical failures
+
+**1.4 Documentation Standards**
+- Document all public APIs, classes, and functions with docstrings
+- Include parameter types, return types, and raised exceptions in docstrings
+- Maintain up-to-date README.md files for each module
+- Document architectural decisions in ADR (Architecture Decision Records) format
+- Keep inline comments concise and relevant
+
+---
+
+## II. Testing Standards
+
+### Article 2: Comprehensive Testing Framework
+
+**2.1 Test Coverage Requirements**
+- Maintain minimum 80% code coverage for all modules
+- Achieve 100% coverage for critical business logic and security functions
+- Test both happy paths and edge cases
+- Include negative test cases for error handling validation
+- Run tests automatically on every commit via CI/CD pipeline
+
+**2.2 Testing Hierarchy**
+- **Unit Tests**: Test individual functions and methods in isolation (mock dependencies)
+- **Integration Tests**: Verify interactions between components and external services
+- **End-to-End Tests**: Validate complete user workflows
+- **Performance Tests**: Ensure response times meet SLA requirements
+- **Security Tests**: Validate authentication, authorization, and data protection
+
+**2.3 Test Quality Standards**
+- Each test should be independent and idempotent
+- Use descriptive test names following the pattern: `test_<action>_<expected_result>`
+- Arrange-Act-Assert (AAA) pattern for test structure
+- Mock external dependencies to ensure test reliability
+- Maintain test execution time under 5 seconds for unit tests
+
+**2.4 Test Data Management**
+- Use factories or fixtures for test data generation
+- Never use production data in tests
+- Clean up test artifacts after execution
+- Seed test databases with predictable, minimal datasets
+- Version control test fixtures and expected outputs
+
+---
+
+## III. User Experience Consistency
+
+### Article 3: Interface and Interaction Standards
+
+**3.1 Response Time Requirements**
+- API responses must complete within 200ms for 95th percentile requests
+- Page load time target: under 2 seconds for initial render
+- Time to Interactive (TTI): under 3.5 seconds
+- Database queries must complete within 100ms for simple operations
+- Implement pagination for collections exceeding 100 items
+
+**3.2 Error Messaging and User Feedback**
+- Provide clear, actionable error messages to users
+- Never expose internal system details in user-facing errors
+- Use consistent error code formats: `ERR_<CATEGORY>_<SPECIFIC>`
+- Implement loading states for operations exceeding 200ms
+- Show progress indicators for long-running operations
+
+**3.3 Accessibility Standards**
+- Follow WCAG 2.1 Level AA compliance
+- Ensure keyboard navigation for all interactive elements
+- Provide ARIA labels for dynamic content
+- Maintain color contrast ratio of at least 4.5:1
+- Support screen readers with semantic HTML
+
+**3.4 Consistency Across Platform**
+- Use the design system components from `frontend/src/components/ui/`
+- Maintain consistent spacing using Tailwind utility classes
+- Follow established patterns for forms, modals, and notifications
+- Use the Toaster component for all user notifications
+- Implement consistent loading and empty states
+
+---
+
+## IV. Performance Requirements
+
+### Article 4: Optimization and Efficiency
+
+**4.1 Resource Management**
+- Implement connection pooling for database connections (max pool size: 20)
+- Use lazy loading for non-critical resources
+- Implement caching strategies with appropriate TTL values
+- Close file handles and network connections explicitly
+- Monitor and limit memory usage per process (max 512MB for agents)
+
+**4.2 Database Optimization**
+- Index all foreign keys and frequently queried columns
+- Avoid N+1 query problems; use eager loading or batch queries
+- Limit result sets with pagination (default page size: 50)
+- Use prepared statements to prevent SQL injection and improve performance
+- Monitor slow query logs and optimize queries exceeding 100ms
+
+**4.3 API Efficiency**
+- Implement request rate limiting: 100 requests/minute per user
+- Use HTTP caching headers appropriately (ETag, Cache-Control)
+- Compress responses with gzip/brotli for payloads > 1KB
+- Implement API versioning to manage breaking changes
+- Use GraphQL or field filtering to reduce payload sizes
+
+**4.4 Scalability Considerations**
+- Design stateless services to enable horizontal scaling
+- Use message queues for async processing of heavy operations
+- Implement circuit breakers for external service dependencies
+- Design for graceful degradation under high load
+- Monitor and alert on resource utilization thresholds
+
+---
+
+## V. Security and Privacy
+
+### Article 5: Security First Approach
+
+**5.1 Authentication and Authorization**
+- Implement multi-factor authentication (MFA) for sensitive operations
+- Use JWT tokens with short expiration times (15 minutes)
+- Implement refresh token rotation
+- Follow principle of least privilege for all access controls
+- Never log or expose sensitive credentials
+
+**5.2 Data Protection**
+- Encrypt sensitive data at rest using AES-256
+- Use TLS 1.3 for all data in transit
+- Sanitize all user inputs to prevent injection attacks
+- Implement CSRF protection for state-changing operations
+- Hash passwords using bcrypt with minimum 12 rounds
+
+**5.3 Dependency Management**
+- Keep all dependencies up-to-date with security patches
+- Scan dependencies for known vulnerabilities weekly
+- Pin dependency versions in production
+- Review and approve all new dependency additions
+- Maintain Software Bill of Materials (SBOM)
+
+**5.4 Audit and Compliance**
+- Log all security-relevant events (authentication, authorization failures)
+- Implement audit trails for data modifications
+- Retain logs for minimum 90 days
+- Comply with GDPR, CCPA, and relevant data protection regulations
+- Conduct security reviews for all code changes
+
+---
+
+## VI. AI Agent Specific Guidelines
+
+### Article 6: Agent Behavior and Capabilities
+
+**6.1 Agent Autonomy Boundaries**
+- Agents must operate within defined capability scopes
+- Require explicit approval for destructive operations
+- Implement rollback mechanisms for all automated changes
+- Log all agent decisions and actions with reasoning
+- Provide human override capabilities for all automated workflows
+
+**6.2 Learning and Adaptation**
+- Continuously improve based on feedback loops
+- A/B test new strategies before full deployment
+- Monitor performance metrics: accuracy, latency, user satisfaction
+- Maintain version history of model weights and configurations
+- Document model training data and validation results
+
+**6.3 Collaboration and Communication**
+- Use standardized message formats for inter-agent communication
+- Implement retry logic with exponential backoff for failed operations
+- Provide clear status updates for long-running operations
+- Share insights and learnings across agent instances
+- Coordinate to avoid conflicting actions
+
+**6.4 Ethical Considerations**
+- Respect user privacy and data ownership
+- Avoid bias in decision-making algorithms
+- Be transparent about AI-driven vs. rule-based decisions
+- Provide explanations for recommendations and actions
+- Default to human judgment for ambiguous situations
+
+---
+
+## VII. Monitoring and Observability
+
+### Article 7: Visibility and Debugging
+
+**7.1 Logging Standards**
+- Use structured logging with JSON format
+- Include correlation IDs for request tracing
+- Log levels: DEBUG (development), INFO (production)
+- Never log sensitive data (PII, credentials, tokens)
+- Implement log sampling for high-volume operations
+
+**7.2 Metrics Collection**
+- Track application performance metrics (latency, throughput, errors)
+- Monitor business metrics (user actions, conversions, workflows)
+- Set up alerts for anomalies and threshold violations
+- Use percentiles (p50, p95, p99) for latency metrics
+- Dashboard key metrics with refresh rates under 30 seconds
+
+**7.3 Distributed Tracing**
+- Implement OpenTelemetry for distributed tracing
+- Track end-to-end request flows across services
+- Identify bottlenecks and performance degradation
+- Correlate traces with logs and metrics
+- Maintain trace sampling rate of 5% in production
+
+**7.4 Health Checks**
+- Implement `/health` endpoints for all services
+- Include dependency health in readiness checks
+- Return appropriate HTTP status codes (200, 503)
+- Check health every 30 seconds in production
+- Auto-restart unhealthy instances after 3 consecutive failures
+
+---
+
+## VIII. Development Workflow
+
+### Article 8: Collaboration and Delivery
+
+**8.1 Version Control**
+- Use Git with meaningful commit messages following Conventional Commits
+- Create feature branches from `main` branch
+- Keep branches short-lived (max 3 days)
+- Rebase before merging to maintain linear history
+- Tag releases with semantic versioning (MAJOR.MINOR.PATCH)
+
+**8.2 Code Review Process**
+- All code requires peer review before merging
+- Review checklist: functionality, tests, security, performance, documentation
+- Approve only when CI passes and requirements are met
+- Provide constructive feedback within 24 hours
+- Request changes for violations of this constitution
+
+**8.3 Continuous Integration/Deployment**
+- Run automated tests on every push
+- Block merges if tests fail or coverage drops
+- Deploy to staging automatically on merge to `main`
+- Require manual approval for production deployments
+- Implement blue-green deployment for zero-downtime releases
+
+**8.4 Incident Response**
+- Acknowledge incidents within 15 minutes
+- Communicate status updates every 30 minutes during outages
+- Conduct blameless post-mortems within 48 hours
+- Document action items and assign ownership
+- Track mean time to recovery (MTTR) target: under 1 hour
+
+---
+
+## IX. Dependencies and Tech Stack
+
+### Article 9: Technology Choices
+
+**9.1 Approved Technologies**
+- **Backend**: Python 3.13+, Express.js 5+, Node.js 24+
+- **Frontend**: React 18+, TypeScript 5+, Vite, Tailwind CSS
+- **AI/ML**: OpenAI SDK, OpenAI Agents framework
+- **Database**: PostgreSQL 15+, Redis 7+
+- **Infrastructure**: Docker, Docker Compose
+- **Testing**: pytest, Jest, Playwright
+- **Monitoring**: OpenTelemetry, Prometheus, Grafana
+
+**9.2 Dependency Evaluation Criteria**
+- Active maintenance and community support
+- Security track record and vulnerability response time
+- Performance characteristics and resource requirements
+- License compatibility (prefer MIT, Apache 2.0, BSD)
+- Documentation quality and learning curve
+
+---
+
+## X. Amendment Process
+
+### Article 10: Constitution Evolution
+
+**10.1 Proposal Process**
+- Any team member may propose amendments
+- Submit proposals via pull request to `.constitution`
+- Include rationale and impact analysis
+- Allow 7-day review period for feedback
+- Require 75% approval from team leads
+
+**10.2 Review Cadence**
+- Review constitution quarterly for relevance
+- Update based on lessons learned and incidents
+- Incorporate new best practices and standards
+- Archive deprecated guidelines with context
+- Communicate changes to all stakeholders
+
+---
+
+## Ratification
+
+This constitution is ratified on October 18, 2025, and takes effect immediately for all AI agents in the Syncly ecosystem.
+
+**Signed**: Syncly AI Agents Development Team
+
+---
+
+## Appendix A: Quick Reference Checklist
+
+### Before Committing Code:
+- [ ] Code follows naming conventions and style guide
+- [ ] All public functions have docstrings
+- [ ] Unit tests written and passing (>80% coverage)
+- [ ] No hardcoded secrets or credentials
+- [ ] Error handling implemented
+- [ ] Performance considerations addressed
+- [ ] Security implications reviewed
+- [ ] Documentation updated
+
+### Before Merging:
+- [ ] CI pipeline passing
+- [ ] Code reviewed and approved
+- [ ] Integration tests passing
+- [ ] No decrease in code coverage
+- [ ] Breaking changes documented
+- [ ] Release notes updated
+
+### Before Deploying:
+- [ ] Staging environment validated
+- [ ] Database migrations tested
+- [ ] Rollback plan documented
+- [ ] Monitoring and alerts configured
+- [ ] Stakeholders notified
+- [ ] Post-deployment verification plan ready
+
+---
+
+*Version 1.0 | Last Updated: October 18, 2025*

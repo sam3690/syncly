@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+  backend:
+    volumes:
+      - ../backend:/app:cached
+    environment:
+      - NODE_ENV=development
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && node app.js"]
+  agents:
+    volumes:
+      - ../agents:/app:cached
+    command: ["uv", "run", "python", "-m", "syncly_agents.orchestrator.cli", "tests/fixtures/project_status.json"]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UV_ENV=dev

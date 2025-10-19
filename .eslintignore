@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+frontend/dist/
+backend/dist/
+coverage/
+*.config.js
+*.config.cjs

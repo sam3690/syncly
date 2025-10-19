@@ -19,8 +19,10 @@ export default function SecurePing() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOut(`${res.status} ${await res.text()}`);
-    } catch (e: any) {
-      setOut(`ERROR: ${e?.message || String(e)}`);
+    } catch (e: unknown) {
+      // Narrow unknown to Error when possible, otherwise stringify
+      const msg = e instanceof Error ? e.message : String(e);
+      setOut(`ERROR: ${msg}`);
     }
   };
 

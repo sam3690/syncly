@@ -1,0 +1,212 @@
+openapi: 3.1.0
+info:
+  title: Syncly Agent Workflow API
+  version: "1.0.0"
+paths:
+  /api/agent-workflow/v1/run:
+    post:
+      summary: Execute summarizing → planning agent workflow
+      operationId: runAgentWorkflow
+      tags:
+        - agent-workflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRequest'
+      responses:
+        "200":
+          description: Combined workflow response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowEnvelope'
+        "400":
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInfo'
+        "503":
+          description: Workflow temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorInfo'
+components:
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+    ISODate:
+      type: string
+      format: date
+    ISODateTime:
+      type: string
+      format: date-time
+    Milestone:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [on_track, at_risk, blocked]
+        due_date:
+          $ref: '#/components/schemas/ISODate'
+        notes:
+          type: string
+    TaskStatus:
+      type: object
+      required: [task_id, title, status]
+      properties:
+        task_id:
+          type: string
+        title:
+          type: string
+        owner:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, complete]
+        due_date:
+          $ref: '#/components/schemas/ISODate'
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+    AgentRequest:
+      type: object
+      required: [request_id, project_name, generated_at]
+      properties:
+        request_id:
+          $ref: '#/components/schemas/UUID'
+        project_name:
+          type: string
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Milestone'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskStatus'
+        metrics:
+          type: object
+          description: Arbitrary key-value metrics supplied by backend.
+        generated_at:
+          $ref: '#/components/schemas/ISODateTime'
+        requester:
+          type: string
+    RiskItem:
+      type: object
+      required: [description, impact]
+      properties:
+        description:
+          type: string
+        impact:
+          type: string
+          enum: [low, medium, high]
+        owner:
+          type: string
+        mitigation:
+          type: string
+    ProjectSummary:
+      type: object
+      required: [headline, progress_percent]
+      properties:
+        headline:
+          type: string
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskItem'
+        highlights:
+          type: array
+          items:
+            type: string
+        data_gaps:
+          type: array
+          items:
+            type: string
+    Recommendation:
+      type: object
+      required: [title, priority, action_items]
+      properties:
+        title:
+          type: string
+        priority:
+          type: string
+          enum: [p0, p1, p2]
+        owner:
+          type: string
+        due_by:
+          $ref: '#/components/schemas/ISODate'
+        action_items:
+          type: array
+          items:
+            type: string
+        rationale:
+          type: string
+    ActionPlan:
+      type: object
+      required: [recommendations]
+      properties:
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+        next_review:
+          $ref: '#/components/schemas/ISODate'
+    ErrorInfo:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          enum: [input_missing, llm_timeout, llm_error, upstream_failure]
+        message:
+          type: string
+        retriable:
+          type: boolean
+    AgentRunMetadata:
+      type: object
+      required: [request_id, orchestrator_started_at, summarizer_latency_ms, planner_latency_ms, retries, status]
+      properties:
+        request_id:
+          $ref: '#/components/schemas/UUID'
+        orchestrator_started_at:
+          $ref: '#/components/schemas/ISODateTime'
+        summarizer_latency_ms:
+          type: integer
+        planner_latency_ms:
+          type: integer
+        retries:
+          type: object
+          required: [summarizer, planner]
+          properties:
+            summarizer:
+              type: integer
+            planner:
+              type: integer
+        status:
+          type: string
+          enum: [success, partial, failed]
+        error:
+          $ref: '#/components/schemas/ErrorInfo'
+    WorkflowEnvelope:
+      type: object
+      required: [metadata]
+      properties:
+        summary:
+          $ref: '#/components/schemas/ProjectSummary'
+        action_plan:
+          $ref: '#/components/schemas/ActionPlan'
+        metadata:
+          $ref: '#/components/schemas/AgentRunMetadata'

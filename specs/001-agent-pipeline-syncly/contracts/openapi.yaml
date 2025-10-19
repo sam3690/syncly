@@ -1,0 +1,247 @@
+openapi: 3.1.0
+info:
+  title: Syncly Agent Pipeline API
+  version: 0.1.0
+  description: REST contracts between the backend service and the agents orchestrator runtime.
+servers:
+  - url: https://api.syncly.internal
+paths:
+  /workspaces/{workspaceId}/integrations/{provider}:
+    put:
+      summary: Activate or refresh an integration connection
+      description: Stores OAuth tokens or API keys for a workspace integration.
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+            enum: [slack, notion, trello, github, gmail, jira, google_sheets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationCredentials'
+      responses:
+        '200':
+          description: Integration credentials stored and validated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationConnection'
+        '400':
+          description: Missing or invalid credentials.
+        '401':
+          description: Authorization failure.
+        '409':
+          description: Conflicting active connection.
+    delete:
+      summary: Disconnect an integration
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: provider
+          required: true
+          schema:
+            type: string
+            enum: [slack, notion, trello, github, gmail, jira, google_sheets]
+      responses:
+        '204':
+          description: Integration removed.
+        '404':
+          description: Connection not found.
+
+  /workspaces/{workspaceId}/manual-logs:
+    post:
+      summary: Upload a manual activity log
+      description: Accepts plain-text or CSV logs for ingestion alongside automated integrations.
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                description:
+                  type: string
+              required: [file]
+      responses:
+        '202':
+          description: Log accepted for processing.
+        '400':
+          description: Unsupported file format or parsing error.
+
+  /workspaces/{workspaceId}/digests/run:
+    post:
+      summary: Trigger digest generation
+      description: Invokes the orchestrator to run ingestion, classification, and summarization immediately.
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Optional human-readable context for the manual trigger.
+      responses:
+        '202':
+          description: Digest run scheduled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigestRun'
+        '404':
+          description: Workspace not provisioned in agent service.
+
+  /workspaces/{workspaceId}/digests/latest:
+    get:
+      summary: Retrieve the latest generated digest
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Latest digest payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigestReport'
+        '404':
+          description: No digest generated yet.
+
+components:
+  schemas:
+    IntegrationCredentials:
+      type: object
+      required: [authType, accessToken]
+      properties:
+        authType:
+          type: string
+          enum: [oauth, api_token]
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        scopes:
+          type: array
+          items:
+            type: string
+    IntegrationConnection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        status:
+          type: string
+          enum: [active, expired, revoked, error]
+        lastSyncedAt:
+          type: string
+          format: date-time
+    DigestRun:
+      type: object
+      properties:
+        runId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        enqueuedAt:
+          type: string
+          format: date-time
+    DigestReport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        reportDate:
+          type: string
+          format: date
+        generatedAt:
+          type: string
+          format: date-time
+        progressItems:
+          type: array
+          items:
+            type: object
+            properties:
+              owner:
+                type: string
+              status:
+                type: string
+              summary:
+                type: string
+              source:
+                type: string
+        blockers:
+          type: array
+          items:
+            type: object
+            properties:
+              owner:
+                type: string
+              reason:
+                type: string
+              recommendedAction:
+                type: string
+        nextActions:
+          type: array
+          items:
+            type: object
+            properties:
+              owner:
+                type: string
+              description:
+                type: string
+        teamMood:
+          type: string
+          enum: [positive, neutral, negative]
+        moodRationale:
+          type: string
+        deliveryStatus:
+          type: string
+          enum: [pending, sent, failed, partially_sent]

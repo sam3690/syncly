@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter as FilterIcon, MoreVertical, Clock, Users, TrendingUp, X } from "lucide-react";
+import { Plus, Search, Filter as FilterIcon, MoreVertical, Clock, Users, TrendingUp, X, Github, Slack, Trello, FileText, Settings, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useWorkflows } from "@/hooks/useWorkflows";
 import type { Workflow } from "@/types/workflow";
 import CreateWorkflowDialog from "@/components/CreateWorkflowDialog";
@@ -97,6 +99,14 @@ const Workflows: React.FC = () => {
   const [status, setStatus] = useState<"all" | ViewStatus>("all");
   const [priority, setPriority] = useState<"all" | ViewPriority>("all");
   const [category, setCategory] = useState<string>("all");
+
+  // Integration dialog state
+  const [selectedWorkflow, setSelectedWorkflow] = useState<ViewWorkflow | null>(null);
+  const [integrationDialogOpen, setIntegrationDialogOpen] = useState(false);
+  const [integrationForm, setIntegrationForm] = useState({
+    platform: '',
+    config: {} as any
+  });
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -333,6 +343,40 @@ const Workflows: React.FC = () => {
                       <Progress value={wf.progress} className="h-2" />
                     </div>
 
+                    {/* Platform Integrations */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Integrations</span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 px-2 text-xs"
+                          onClick={() => {
+                            setSelectedWorkflow(wf);
+                            setIntegrationDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                      <div className="flex gap-1 flex-wrap">
+                        {(wf as any).workflow_integrations?.length > 0 ? (
+                          (wf as any).workflow_integrations.map((integration: any) => (
+                            <Badge key={integration.id} variant="secondary" className="text-xs px-2 py-1">
+                              {integration.platform === 'github' && <Github className="h-3 w-3 mr-1" />}
+                              {integration.platform === 'slack' && <Slack className="h-3 w-3 mr-1" />}
+                              {integration.platform === 'trello' && <Trello className="h-3 w-3 mr-1" />}
+                              {integration.platform === 'jira' && <FileText className="h-3 w-3 mr-1" />}
+                              {integration.platform}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No integrations</span>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between pt-2 text-sm">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1 text-muted-foreground">
@@ -356,6 +400,232 @@ const Workflows: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Integration Dialog */}
+      <Dialog open={integrationDialogOpen} onOpenChange={setIntegrationDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Platform Integration</DialogTitle>
+            <DialogDescription>
+              Connect {selectedWorkflow?.name} to external platforms for automated data sync.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="platform">Platform</Label>
+              <select
+                id="platform"
+                value={integrationForm.platform}
+                onChange={(e) => setIntegrationForm({ platform: e.target.value, config: {} })}
+                className="w-full h-9 rounded-md border bg-background px-3 text-sm mt-1"
+              >
+                <option value="">Select platform...</option>
+                <option value="github">GitHub Repository</option>
+                <option value="slack">Slack Channel</option>
+                <option value="trello">Trello Board</option>
+                <option value="jira">Jira Project</option>
+              </select>
+            </div>
+
+            {integrationForm.platform === 'github' && (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="repo">Repository (owner/repo)</Label>
+                  <Input
+                    id="repo"
+                    placeholder="e.g., facebook/react"
+                    value={integrationForm.config.repo || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, repo: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="token">GitHub Token</Label>
+                  <Input
+                    id="token"
+                    type="password"
+                    placeholder="ghp_..."
+                    value={integrationForm.config.token || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, token: e.target.value }
+                    })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {integrationForm.platform === 'slack' && (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="webhook">Slack Webhook URL</Label>
+                  <Input
+                    id="webhook"
+                    placeholder="https://hooks.slack.com/..."
+                    value={integrationForm.config.webhook_url || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, webhook_url: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="channel">Channel Name</Label>
+                  <Input
+                    id="channel"
+                    placeholder="#general"
+                    value={integrationForm.config.channel || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, channel: e.target.value }
+                    })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {integrationForm.platform === 'trello' && (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="board">Board ID</Label>
+                  <Input
+                    id="board"
+                    placeholder="Trello Board ID"
+                    value={integrationForm.config.board_id || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, board_id: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="apiKey">API Key</Label>
+                  <Input
+                    id="apiKey"
+                    value={integrationForm.config.api_key || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, api_key: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="trelloToken">Token</Label>
+                  <Input
+                    id="trelloToken"
+                    type="password"
+                    value={integrationForm.config.token || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, token: e.target.value }
+                    })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {integrationForm.platform === 'jira' && (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="domain">Jira Domain</Label>
+                  <Input
+                    id="domain"
+                    placeholder="yourcompany.atlassian.net"
+                    value={integrationForm.config.domain || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, domain: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="project">Project Key</Label>
+                  <Input
+                    id="project"
+                    placeholder="PROJ"
+                    value={integrationForm.config.project_key || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, project_key: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={integrationForm.config.email || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, email: e.target.value }
+                    })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="apiToken">API Token</Label>
+                  <Input
+                    id="apiToken"
+                    type="password"
+                    value={integrationForm.config.api_token || ''}
+                    onChange={(e) => setIntegrationForm({
+                      ...integrationForm,
+                      config: { ...integrationForm.config, api_token: e.target.value }
+                    })}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                onClick={async () => {
+                  if (!selectedWorkflow || !integrationForm.platform) return;
+                  
+                  try {
+                    const token = await getTokenOrLogin();
+                    if (!token) return;
+
+                    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/workflows/${selectedWorkflow.id}/integrations`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify(integrationForm)
+                    });
+
+                    if (response.ok) {
+                      setIntegrationDialogOpen(false);
+                      setIntegrationForm({ platform: '', config: {} });
+                      await qc.invalidateQueries({ queryKey: ["workflows"] });
+                    }
+                  } catch (error) {
+                    console.error('Failed to add integration:', error);
+                  }
+                }}
+                disabled={!integrationForm.platform || Object.keys(integrationForm.config).length === 0}
+                className="flex-1"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Connect
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIntegrationDialogOpen(false);
+                  setIntegrationForm({ platform: '', config: {} });
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

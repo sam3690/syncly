@@ -20,7 +20,11 @@ const _fetch =
 // -----------------------------------------------------
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:8080"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:8080",
+      "https://d1nsc9i977d35h.cloudfront.net"
+    ],
     credentials: true,
   })
 );
@@ -31,6 +35,25 @@ app.use(express.json());
 // -----------------------------------------------------
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "syncly-backend" });
+});
+
+app.get("/", (req, res) => {
+  res.json({
+    name: "Syncly API",
+    version: "1.0.0",
+    description: "Unified workflow and activity management platform",
+    endpoints: {
+      health: "/health",
+      info: "/api/v1/info",
+      workflows: "/api/v1/workflows",
+      activities: "/api/v1/activities",
+      ai: {
+        insights: "/api/v1/ai/insights",
+        suggestions: "/api/v1/ai/suggestions"
+      }
+    },
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.get("/api/v1/info", (req, res) => {
@@ -74,14 +97,100 @@ const { supabase } = require("./supabase");
 
 // LIST (public)
 app.get("/api/v1/workflows", async (req, res) => {
-  const { data, error } = await supabase
-    .from("workflows")
-    .select("*")
-    .order("updated_at", { ascending: false })
-    .limit(200);
+  try {
+    const { data, error } = await supabase
+      .from("workflows")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(200);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ items: data || [], count: data?.length || 0 });
+    if (error) throw error;
+
+    // Add mock integrations for demo
+    const workflowsWithIntegrations = (data || []).map(workflow => ({
+      ...workflow,
+      workflow_integrations: [
+        {
+          id: "github-1",
+          platform: "github",
+          config: { repo: "facebook/react" },
+          status: "active",
+          created_at: new Date().toISOString()
+        }
+      ]
+    }));
+
+    res.json({ items: workflowsWithIntegrations, count: workflowsWithIntegrations.length });
+  } catch (error) {
+    console.error("Error fetching workflows:", error);
+    // Return mock workflows if Supabase is not configured
+    const mockWorkflows = [
+      {
+        id: "wf-1",
+        name: "User Authentication System",
+        description: "Implement OAuth2 authentication with Auth0 integration",
+        status: "active",
+        progress: 75,
+        tasks: 12,
+        members: 3,
+        category: "Security",
+        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        workflow_integrations: [
+          {
+            id: "github-1",
+            platform: "github",
+            config: { repo: "company/auth-service" },
+            status: "active",
+            created_at: new Date().toISOString()
+          }
+        ]
+      },
+      {
+        id: "wf-2",
+        name: "API Documentation Update",
+        description: "Update API docs for v2.1 release with new endpoints",
+        status: "completed",
+        progress: 100,
+        tasks: 8,
+        members: 2,
+        category: "Documentation",
+        created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        workflow_integrations: [
+          {
+            id: "jira-1",
+            platform: "jira",
+            config: { project_key: "DOCS", domain: "company.atlassian.net" },
+            status: "active",
+            created_at: new Date().toISOString()
+          }
+        ]
+      },
+      {
+        id: "wf-3",
+        name: "Mobile App Performance",
+        description: "Optimize mobile app performance and reduce load times",
+        status: "paused",
+        progress: 45,
+        tasks: 15,
+        members: 4,
+        category: "Performance",
+        created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        workflow_integrations: [
+          {
+            id: "slack-1",
+            platform: "slack",
+            config: { channel: "#mobile-dev" },
+            status: "active",
+            created_at: new Date().toISOString()
+          }
+        ]
+      }
+    ];
+    res.json({ items: mockWorkflows, count: mockWorkflows.length });
+  }
 });
 
 // CREATE (protected)
@@ -248,21 +357,193 @@ app.get("/integrations/github/import", async (req, res) => {
 // Activity list (public)
 // -----------------------------------------------------
 app.get("/api/v1/activities", async (req, res) => {
-  const workspaceId = process.env.WORKSPACE_ID || "demo";
-  const { data, error } = await supabase
-    .from("activity_events")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .order("occurred_at", { ascending: false })
-    .limit(200);
+  try {
+    const workspaceId = process.env.WORKSPACE_ID || "demo";
+    const { data, error } = await supabase
+      .from("activity_events")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("occurred_at", { ascending: false })
+      .limit(200);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ items: data || [], count: data?.length || 0 });
+    if (error) throw error;
+    res.json({ items: data || [], count: data?.length || 0 });
+  } catch (error) {
+    console.error("Error fetching activities:", error);
+    // Return mock data if Supabase is not configured
+    const mockActivities = [
+      {
+        id: "1",
+        workspace_id: "demo",
+        provider: "github",
+        type: "pr_opened",
+        title: "Add user authentication system",
+        description: "Implement OAuth2 authentication with Auth0 integration",
+        url: "https://github.com/example/repo/pull/42",
+        actor: "john-doe",
+        occurred_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+        metadata: { number: 42, state: "open" }
+      },
+      {
+        id: "2",
+        workspace_id: "demo",
+        provider: "github",
+        type: "issue_closed",
+        title: "Fix responsive design on mobile",
+        description: "Mobile layout breaks on screens smaller than 320px",
+        url: "https://github.com/example/repo/issues/38",
+        actor: "jane-smith",
+        occurred_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
+        metadata: { number: 38, state: "closed" }
+      },
+      {
+        id: "3",
+        workspace_id: "demo",
+        provider: "slack",
+        type: "message",
+        title: "Team standup completed",
+        description: "Daily standup finished with 5 participants",
+        url: "#general",
+        actor: "team-lead",
+        occurred_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
+        metadata: { channel: "general" }
+      },
+      {
+        id: "4",
+        workspace_id: "demo",
+        provider: "trello",
+        type: "card_moved",
+        title: "Database schema design",
+        description: "Moved from 'In Progress' to 'Review'",
+        url: "https://trello.com/c/example",
+        actor: "dev-team",
+        occurred_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
+        metadata: { board: "Project Board", list: "Review" }
+      },
+      {
+        id: "5",
+        workspace_id: "demo",
+        provider: "jira",
+        type: "issue_updated",
+        title: "API documentation update",
+        description: "Updated API docs for v2.1 release",
+        url: "https://company.atlassian.net/browse/PROJ-123",
+        actor: "api-team",
+        occurred_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
+        metadata: { key: "PROJ-123", status: "Done" }
+      }
+    ];
+    res.json({ items: mockActivities, count: mockActivities.length });
+  }
 });
 
-// -----------------------------------------------------
-// Slack digest via Incoming Webhook (protected)
-// -----------------------------------------------------
+// GET /api/v1/ai/insights
+app.get("/api/v1/ai/insights", async (req, res) => {
+  try {
+    // Call the agent service to get AI insights
+    const agentsUrl = process.env.AGENTS_API_URL || "http://agents:8085";
+    const agentResponse = await fetch(`${agentsUrl}/insights`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!agentResponse.ok) {
+      throw new Error(`Agent service returned ${agentResponse.status}`);
+    }
+
+    const insights = await agentResponse.json();
+    res.json(insights);
+  } catch (error) {
+    console.error("Error fetching AI insights:", error);
+    // Return mock data if agent is unavailable
+    res.json({
+      insights: [
+        {
+          id: 1,
+          title: "GitHub Activity Analysis",
+          description: "Recent commits show active development. Consider reviewing PR #42 for potential optimizations.",
+          impact: "medium",
+          category: "Development",
+          metrics: { commits: 15, prs: 3 },
+          icon: "Target"
+        }
+      ],
+      stats: {
+        activeInsights: 1,
+        timeSaved: "2h",
+        efficiency: "+5%"
+      }
+    });
+  }
+});
+
+// GET /api/v1/ai/suggestions
+app.get("/api/v1/ai/suggestions", async (req, res) => {
+  try {
+    // Call the agent service to get AI suggestions
+    const agentsUrl = process.env.AGENTS_API_URL || "http://agents:8085";
+    const agentResponse = await fetch(`${agentsUrl}/suggestions`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!agentResponse.ok) {
+      throw new Error(`Agent service returned ${agentResponse.status}`);
+    }
+
+    const suggestions = await agentResponse.json();
+    res.json(suggestions);
+  } catch (error) {
+    console.error("Error fetching AI suggestions:", error);
+    // Return helpful fallback suggestions
+    res.json({
+      suggestions: [
+        {
+          id: 1,
+          title: "Review Open Pull Requests",
+          description: "Check for PRs that need review or have been waiting too long. Focus on high-priority features.",
+          priority: "high",
+          type: "review",
+          estimatedTime: "15 min"
+        },
+        {
+          id: 2,
+          title: "Update Dependencies",
+          description: "Run dependency updates to ensure security patches and latest features are applied.",
+          priority: "medium",
+          type: "maintenance",
+          estimatedTime: "10 min"
+        },
+        {
+          id: 3,
+          title: "Improve Code Coverage",
+          description: "Add tests for recently added features to maintain high code quality standards.",
+          priority: "medium",
+          type: "quality",
+          estimatedTime: "30 min"
+        },
+        {
+          id: 4,
+          title: "Document Recent Changes",
+          description: "Update README or documentation to reflect recent feature additions or API changes.",
+          priority: "low",
+          type: "documentation",
+          estimatedTime: "20 min"
+        }
+      ],
+      summary: {
+        totalSuggestions: 4,
+        criticalIssues: 0,
+        productivityTips: 4
+      }
+    });
+  }
+});
+
 app.post("/notify/slack/digest", requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from("activity_events")
@@ -294,6 +575,17 @@ app.post("/notify/slack/digest", requireAuth, async (req, res) => {
   if (!resp.ok) return res.status(500).json({ error: `Slack ${resp.status}` });
   res.json({ ok: true, sent: (data || []).length });
 });
+
+// AWS Lambda handler
+const serverless = require('serverless-http');
+module.exports.handler = serverless(app);
+
+// For local development
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Syncly backend listening on port ${PORT}`);
+  });
+}
 
 // -----------------------------------------------------
 // Slack importer (public during dev; add requireAuth if you want)

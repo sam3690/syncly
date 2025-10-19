@@ -57,7 +57,16 @@ function formatDate(iso?: string) {
 // Our domain type (from /types/workflow.ts) may not have dueDate/priority/tags yet.
 // This mapper lets us keep your UI shape while our backend evolves.
 function toViewModel(w: Workflow): ViewWorkflow {
-  const a = w as any;
+  const a = w as Workflow & {
+    dueDate?: string;
+    priority?: ViewPriority;
+    category?: string;
+    tags?: string[];
+    tasks?: number;
+    members?: number;
+    lastUpdatedLabel?: string;
+    progress?: number;
+  };
   const pct = Number.isFinite(a.progress) ? a.progress : (w.completionRate ?? 0);
   const derivedPriority: ViewPriority =
     pct >= 90 ? "low" : pct >= 50 ? "medium" : "high";
@@ -225,14 +234,14 @@ export function WorkflowTable() {
                   </td>
 
                   <td className="px-6 py-4">
-                    <span className="text-sm">{(wf as any).tasks ?? "—"}</span>
+                    <span className="text-sm">{(wf as ViewWorkflow & { tasks?: number }).tasks ?? "—"}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm">{(wf as any).members ?? "—"}</span>
+                    <span className="text-sm">{(wf as ViewWorkflow & { members?: number }).members ?? "—"}</span>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm text-muted-foreground">
-                      {(wf as any).lastUpdatedLabel || (wf.dueDate ? formatDate(wf.dueDate) : "—")}
+                      {(wf as ViewWorkflow & { lastUpdatedLabel?: string }).lastUpdatedLabel || (wf.dueDate ? formatDate(wf.dueDate) : "—")}
                     </span>
                   </td>
 

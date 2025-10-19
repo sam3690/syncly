@@ -5,8 +5,9 @@ type Props = { children: React.ReactNode };
 export default function AuthProvider({ children }: Props) {
   const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE as string;
 
-  console.log("AuthProvider env vars:", { domain, clientId });
+  console.log("AuthProvider env vars:", { domain, clientId, audience });
 
   if (!domain || !clientId) {
     console.warn("Auth0 env vars missing; Auth will be disabled");
@@ -21,7 +22,7 @@ export default function AuthProvider({ children }: Props) {
       clientId={clientId}
       authorizationParams={{
         redirect_uri: window.location.origin,
-        audience: undefined, // Temporarily disabled - API not configured in Auth0
+        audience: audience,
       }}
       cacheLocation="localstorage"
     >

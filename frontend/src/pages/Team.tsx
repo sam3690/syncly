@@ -25,7 +25,7 @@ const teamMembers = [
   {
     id: 1,
     name: "John Doe",
-    email: "john@flowmate.com",
+    email: "john@syncly.com",
     role: "Admin",
     status: "active",
     workflows: 12,
@@ -36,7 +36,7 @@ const teamMembers = [
   {
     id: 2,
     name: "Sarah Johnson",
-    email: "sarah@flowmate.com",
+    email: "sarah@syncly.com",
     role: "Manager",
     status: "active",
     workflows: 8,
@@ -47,7 +47,7 @@ const teamMembers = [
   {
     id: 3,
     name: "Mike Wilson",
-    email: "mike@flowmate.com",
+    email: "mike@syncly.com",
     role: "Member",
     status: "active",
     workflows: 5,
@@ -58,7 +58,7 @@ const teamMembers = [
   {
     id: 4,
     name: "Emily Brown",
-    email: "emily@flowmate.com",
+    email: "emily@syncly.com",
     role: "Member",
     status: "active",
     workflows: 6,
@@ -69,7 +69,7 @@ const teamMembers = [
   {
     id: 5,
     name: "David Lee",
-    email: "david@flowmate.com",
+    email: "david@syncly.com",
     role: "Member",
     status: "inactive",
     workflows: 3,

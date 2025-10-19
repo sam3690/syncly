@@ -97,7 +97,7 @@ const Settings = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue="john@flowmate.com" />
+                    <Input id="email" type="email" defaultValue="john@syncly.com" />
                   </div>
 
                   <div className="space-y-2">
@@ -200,7 +200,7 @@ const Settings = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Appearance</CardTitle>
-                  <CardDescription>Customize how FlowMate looks</CardDescription>
+                  <CardDescription>Customize how Syncly looks</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
@@ -298,7 +298,7 @@ const Settings = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Integrations</CardTitle>
-                  <CardDescription>Connect FlowMate with your favorite tools</CardDescription>
+                  <CardDescription>Connect Syncly with your favorite tools</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between p-4 border rounded-lg">

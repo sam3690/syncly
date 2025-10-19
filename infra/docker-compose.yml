@@ -39,4 +39,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    command: ["uv", "run", "syncly-agents", "tests/fixtures/project_status.json"]
+    ports:
+      - "8085:8085"
+    command: ["server"]

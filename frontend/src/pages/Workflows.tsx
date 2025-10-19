@@ -28,6 +28,32 @@ import { createWorkflowAuth, updateWorkflowAuth, deleteWorkflowAuth } from "@/ap
 type ViewStatus = "active" | "completed" | "paused";
 type ViewPriority = "high" | "medium" | "low";
 
+type WorkflowIntegration = {
+  id: string;
+  platform: 'github' | 'slack' | 'trello' | 'jira';
+  config: Record<string, unknown>;
+};
+
+type ExtendedWorkflow = Workflow & {
+  description?: string;
+  tasks?: number;
+  members?: number;
+  category?: string;
+  priority?: ViewPriority;
+  workflow_integrations?: WorkflowIntegration[];
+};
+
+type IntegrationConfig =
+  | { repo: string; token: string }
+  | { webhook_url: string; channel: string }
+  | { board_id: string; api_key: string; token: string }
+  | { domain: string; project_key: string; email: string; api_token: string };
+
+type IntegrationForm = {
+  platform: string;
+  config: IntegrationConfig | Record<string, unknown>;
+};
+
 type ViewWorkflow = {
   id: string;
   name: string;
@@ -39,24 +65,26 @@ type ViewWorkflow = {
   lastUpdated?: string;          // ISO
   category?: string;             // e.g., Marketing, Engineering
   priority: ViewPriority;        // derived or supplied
+  workflow_integrations?: WorkflowIntegration[];
 };
 
 function toViewModel(w: Workflow): ViewWorkflow {
-  const a = w as any; // read optional fields if present later
+  const extended = w as ExtendedWorkflow;
   const derivedPriority: ViewPriority =
     w.completionRate >= 90 ? "low" : w.completionRate >= 50 ? "medium" : "high";
 
   return {
     id: w.id,
     name: w.name ?? "Untitled",
-    description: a.description || undefined,
+    description: extended.description || undefined,
     status: (w.status as ViewStatus) ?? "active",
     progress: Math.max(0, Math.min(100, Math.round(w.completionRate ?? 0))),
-    tasks: Number.isFinite(a.tasks) ? a.tasks : Math.floor((w.completionRate ?? 0) / 5), // placeholder
-    members: Number.isFinite(a.members) ? a.members : Math.max(1, Math.round((w.completionRate ?? 0) / 15)),
+    tasks: Number.isFinite(extended.tasks) ? extended.tasks : Math.floor((w.completionRate ?? 0) / 5), // placeholder
+    members: Number.isFinite(extended.members) ? extended.members : Math.max(1, Math.round((w.completionRate ?? 0) / 15)),
     lastUpdated: w.updatedAt || w.createdAt,
-    category: a.category, // optional
-    priority: (a.priority as ViewPriority) || derivedPriority,
+    category: extended.category, // optional
+    priority: extended.priority || derivedPriority,
+    workflow_integrations: extended.workflow_integrations,
   };
 }
 
@@ -103,9 +131,9 @@ const Workflows: React.FC = () => {
   // Integration dialog state
   const [selectedWorkflow, setSelectedWorkflow] = useState<ViewWorkflow | null>(null);
   const [integrationDialogOpen, setIntegrationDialogOpen] = useState(false);
-  const [integrationForm, setIntegrationForm] = useState({
+  const [integrationForm, setIntegrationForm] = useState<IntegrationForm>({
     platform: '',
-    config: {} as any
+    config: {}
   });
 
   const categories = useMemo(() => {
@@ -166,8 +194,8 @@ const Workflows: React.FC = () => {
           status: wf.status,
           progress: wf.progress ?? 0,
           category: wf.category,
-          tasks: (wf as any).tasks,
-          members: (wf as any).members,
+          tasks: wf.tasks,
+          members: wf.members,
         },
         token
       );
@@ -246,7 +274,7 @@ const Workflows: React.FC = () => {
               <div className="flex flex-wrap items-center gap-3 rounded-md border p-3">
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
+                  onChange={(e) => setStatus(e.target.value as "all" | ViewStatus)}
                   className="h-9 rounded-md border bg-background px-2 text-sm"
                   title="Status"
                 >
@@ -258,7 +286,7 @@ const Workflows: React.FC = () => {
 
                 <select
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
+                  onChange={(e) => setPriority(e.target.value as "all" | ViewPriority)}
                   className="h-9 rounded-md border bg-background px-2 text-sm"
                   title="Priority"
                 >
@@ -361,8 +389,8 @@ const Workflows: React.FC = () => {
                         </Button>
                       </div>
                       <div className="flex gap-1 flex-wrap">
-                        {(wf as any).workflow_integrations?.length > 0 ? (
-                          (wf as any).workflow_integrations.map((integration: any) => (
+                        {wf.workflow_integrations && wf.workflow_integrations.length > 0 ? (
+                          wf.workflow_integrations.map((integration) => (
                             <Badge key={integration.id} variant="secondary" className="text-xs px-2 py-1">
                               {integration.platform === 'github' && <Github className="h-3 w-3 mr-1" />}
                               {integration.platform === 'slack' && <Slack className="h-3 w-3 mr-1" />}
@@ -435,7 +463,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="repo"
                     placeholder="e.g., facebook/react"
-                    value={integrationForm.config.repo || ''}
+                    value={(integrationForm.config as { repo?: string }).repo || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, repo: e.target.value }
@@ -448,7 +476,7 @@ const Workflows: React.FC = () => {
                     id="token"
                     type="password"
                     placeholder="ghp_..."
-                    value={integrationForm.config.token || ''}
+                    value={(integrationForm.config as { token?: string }).token || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, token: e.target.value }
@@ -465,7 +493,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="webhook"
                     placeholder="https://hooks.slack.com/..."
-                    value={integrationForm.config.webhook_url || ''}
+                    value={(integrationForm.config as { webhook_url?: string }).webhook_url || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, webhook_url: e.target.value }
@@ -477,7 +505,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="channel"
                     placeholder="#general"
-                    value={integrationForm.config.channel || ''}
+                    value={(integrationForm.config as { channel?: string }).channel || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, channel: e.target.value }
@@ -494,7 +522,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="board"
                     placeholder="Trello Board ID"
-                    value={integrationForm.config.board_id || ''}
+                    value={(integrationForm.config as { board_id?: string }).board_id || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, board_id: e.target.value }
@@ -505,7 +533,7 @@ const Workflows: React.FC = () => {
                   <Label htmlFor="apiKey">API Key</Label>
                   <Input
                     id="apiKey"
-                    value={integrationForm.config.api_key || ''}
+                    value={(integrationForm.config as { api_key?: string }).api_key || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, api_key: e.target.value }
@@ -517,7 +545,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="trelloToken"
                     type="password"
-                    value={integrationForm.config.token || ''}
+                    value={(integrationForm.config as { token?: string }).token || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, token: e.target.value }
@@ -534,7 +562,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="domain"
                     placeholder="yourcompany.atlassian.net"
-                    value={integrationForm.config.domain || ''}
+                    value={(integrationForm.config as { domain?: string }).domain || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, domain: e.target.value }
@@ -546,7 +574,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="project"
                     placeholder="PROJ"
-                    value={integrationForm.config.project_key || ''}
+                    value={(integrationForm.config as { project_key?: string }).project_key || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, project_key: e.target.value }
@@ -558,7 +586,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="email"
                     type="email"
-                    value={integrationForm.config.email || ''}
+                    value={(integrationForm.config as { email?: string }).email || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, email: e.target.value }
@@ -570,7 +598,7 @@ const Workflows: React.FC = () => {
                   <Input
                     id="apiToken"
                     type="password"
-                    value={integrationForm.config.api_token || ''}
+                    value={(integrationForm.config as { api_token?: string }).api_token || ''}
                     onChange={(e) => setIntegrationForm({
                       ...integrationForm,
                       config: { ...integrationForm.config, api_token: e.target.value }

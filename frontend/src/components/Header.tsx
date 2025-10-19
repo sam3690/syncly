@@ -14,14 +14,31 @@ export function Header() {
   const showDiag = import.meta.env.VITE_ENABLE_DIAGNOSTICS === "true";
 
   useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains("dark");
-    setIsDark(isDarkMode);
+    // Load saved theme preference from localStorage
+    const savedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    
+    let shouldBeDark = false;
+    
+    if (savedTheme === "dark") {
+      shouldBeDark = true;
+    } else if (savedTheme === "light") {
+      shouldBeDark = false;
+    } else {
+      // No saved preference, use system preference
+      shouldBeDark = prefersDark;
+    }
+    
+    setIsDark(shouldBeDark);
+    document.documentElement.classList.toggle("dark", shouldBeDark);
   }, []);
 
   const toggleTheme = () => {
     const newIsDark = !isDark;
     setIsDark(newIsDark);
-    document.documentElement.classList.toggle("dark");
+    document.documentElement.classList.toggle("dark", newIsDark);
+    // Save theme preference to localStorage
+    localStorage.setItem("theme", newIsDark ? "dark" : "light");
   };
 
   return (

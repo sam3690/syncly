@@ -6,6 +6,8 @@ export default function AuthProvider({ children }: Props) {
   const domain = import.meta.env.VITE_AUTH0_DOMAIN as string;
   const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID as string;
 
+  console.log("AuthProvider env vars:", { domain, clientId });
+
   if (!domain || !clientId) {
     console.warn("Auth0 env vars missing; Auth will be disabled");
     return <>{children}</>;
@@ -19,7 +21,7 @@ export default function AuthProvider({ children }: Props) {
       clientId={clientId}
       authorizationParams={{
         redirect_uri: window.location.origin,
-        audience: import.meta.env.VITE_AUTH0_AUDIENCE || undefined,
+        audience: undefined, // Temporarily disabled - API not configured in Auth0
       }}
       cacheLocation="localstorage"
     >

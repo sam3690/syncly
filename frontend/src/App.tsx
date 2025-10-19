@@ -13,6 +13,9 @@ import AIInsights from "./pages/AIInsights";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import protect from "@/components/auth/Protected";
+import ReportsPage from "@/pages/Reports"; 
+import React from "react";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +35,7 @@ const App = () => (
           <Route path="/ai-insights" element={<AIInsights />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/reports" element={React.createElement(protect(ReportsPage))} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -4,7 +4,6 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { expressjwt: jwt } = require("express-jwt");
 const jwksRsa = require("jwks-rsa");
-const { createClient } = require("@supabase/supabase-js");
 
 dotenv.config();
 
@@ -82,25 +81,10 @@ app.get("/api/v1/workflows", async (req, res) => {
     .limit(200);
 
   if (error) return res.status(500).json({ error: error.message });
-
-  // Add mock integrations for demo
-  const workflowsWithIntegrations = (data || []).map(workflow => ({
-    ...workflow,
-    workflow_integrations: [
-      {
-        id: "github-1",
-        platform: "github",
-        config: { repo: "facebook/react" },
-        status: "active",
-        created_at: new Date().toISOString()
-      }
-    ]
-  }));
-
-  res.json({ items: workflowsWithIntegrations, count: workflowsWithIntegrations.length });
+  res.json({ items: data || [], count: data?.length || 0 });
 });
 
-/* CREATE: POST /api/v1/workflows  (protected) */
+// CREATE (protected)
 app.post("/api/v1/workflows", requireAuth, async (req, res) => {
   const b = req.body || {};
   if (!b.name) return res.status(400).json({ error: "name is required" });
@@ -166,11 +150,10 @@ app.delete("/api/v1/workflows/:id", requireAuth, async (req, res) => {
   res.status(204).end();
 });
 
-
-// --- GitHub Integration -----------------------------------------------------------
-const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args)); // if not already installed
-
-// GET /integrations/github/import?since=2025-10-01T00:00:00Z
+// -----------------------------------------------------
+// GitHub Importer (public during dev; add requireAuth if you want)
+// - Groups by issue/PR (owner/repo#number) or repo
+// -----------------------------------------------------
 app.get("/integrations/github/import", async (req, res) => {
   try {
     const repo = (req.query.repo || process.env.GITHUB_REPO || "").trim(); // e.g. anthropics/claude-cookbooks
@@ -275,111 +258,6 @@ app.get("/api/v1/activities", async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ items: data || [], count: data?.length || 0 });
-});
-
-// GET /api/v1/ai/insights
-app.get("/api/v1/ai/insights", async (req, res) => {
-  try {
-    // Call the agent service to get AI insights
-    const agentResponse = await fetch("http://agents:8085/insights", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!agentResponse.ok) {
-      throw new Error(`Agent service returned ${agentResponse.status}`);
-    }
-
-    const insights = await agentResponse.json();
-    res.json(insights);
-  } catch (error) {
-    console.error("Error fetching AI insights:", error);
-    // Return mock data if agent is unavailable
-    res.json({
-      insights: [
-        {
-          id: 1,
-          title: "GitHub Activity Analysis",
-          description: "Recent commits show active development. Consider reviewing PR #42 for potential optimizations.",
-          impact: "medium",
-          category: "Development",
-          metrics: { commits: 15, prs: 3 },
-          icon: "Target"
-        }
-      ],
-      stats: {
-        activeInsights: 1,
-        timeSaved: "2h",
-        efficiency: "+5%"
-      }
-    });
-  }
-});
-
-// GET /api/v1/ai/suggestions
-app.get("/api/v1/ai/suggestions", async (req, res) => {
-  try {
-    // Call the agent service to get AI suggestions
-    const agentResponse = await fetch("http://agents:8085/suggestions", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!agentResponse.ok) {
-      throw new Error(`Agent service returned ${agentResponse.status}`);
-    }
-
-    const suggestions = await agentResponse.json();
-    res.json(suggestions);
-  } catch (error) {
-    console.error("Error fetching AI suggestions:", error);
-    // Return helpful fallback suggestions
-    res.json({
-      suggestions: [
-        {
-          id: 1,
-          title: "Review Open Pull Requests",
-          description: "Check for PRs that need review or have been waiting too long. Focus on high-priority features.",
-          priority: "high",
-          type: "review",
-          estimatedTime: "15 min"
-        },
-        {
-          id: 2,
-          title: "Update Dependencies",
-          description: "Run dependency updates to ensure security patches and latest features are applied.",
-          priority: "medium",
-          type: "maintenance",
-          estimatedTime: "10 min"
-        },
-        {
-          id: 3,
-          title: "Improve Code Coverage",
-          description: "Add tests for recently added features to maintain high code quality standards.",
-          priority: "medium",
-          type: "quality",
-          estimatedTime: "30 min"
-        },
-        {
-          id: 4,
-          title: "Document Recent Changes",
-          description: "Update README or documentation to reflect recent feature additions or API changes.",
-          priority: "low",
-          type: "documentation",
-          estimatedTime: "20 min"
-        }
-      ],
-      summary: {
-        totalSuggestions: 4,
-        criticalIssues: 0,
-        productivityTips: 4
-      }
-    });
-  }
 });
 
 // -----------------------------------------------------

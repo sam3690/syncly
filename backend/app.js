@@ -1,15 +1,23 @@
+// backend/app.js
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const { expressjwt: jwt } = require("express-jwt");
 const jwksRsa = require("jwks-rsa");
-const { createClient } = require("@supabase/supabase-js");
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// If your Node < 18, install: npm i node-fetch@3
+const _fetch =
+  global.fetch ||
+  ((...args) => import("node-fetch").then(({ default: f }) => f(...args)));
+
+// -----------------------------------------------------
+// Core + CORS + JSON
+// -----------------------------------------------------
 app.use(
   cors({
     origin: [
@@ -22,6 +30,9 @@ app.use(
 );
 app.use(express.json());
 
+// -----------------------------------------------------
+// Health & Info
+// -----------------------------------------------------
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "syncly-backend" });
 });
@@ -53,6 +64,9 @@ app.get("/api/v1/info", (req, res) => {
   });
 });
 
+// -----------------------------------------------------
+// Auth0
+// -----------------------------------------------------
 const domain = process.env.AUTH0_DOMAIN;
 const audience = process.env.AUTH0_AUDIENCE;
 
@@ -63,27 +77,25 @@ const requireAuth = jwt({
     rateLimit: true,
     jwksRequestsPerMinute: 10,
   }),
-  audience: audience,
+  audience,
   issuer: `https://${domain}/`,
   algorithms: ["RS256"],
 });
 
 app.get("/secure/ping", requireAuth, (req, res) => {
-  res.json({
-    ok: true,
-    user: req.auth,
-  });
+  res.json({ ok: true, user: req.auth });
 });
 
-app.listen(PORT, () => {
-  console.log(`Syncly backend listening on port ${PORT}`);
-});
-
-
-// --- Workflows API -----------------------------------------------------------
+// -----------------------------------------------------
+// Supabase client
+// -----------------------------------------------------
 const { supabase } = require("./supabase");
 
-/* LIST: GET /api/v1/workflows  (public) */
+// -----------------------------------------------------
+// Workflows API
+// -----------------------------------------------------
+
+// LIST (public)
 app.get("/api/v1/workflows", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -181,27 +193,28 @@ app.get("/api/v1/workflows", async (req, res) => {
   }
 });
 
-/* CREATE: POST /api/v1/workflows  (protected) */
-app.post("/api/v1/workflows", async (req, res) => {
+// CREATE (protected)
+app.post("/api/v1/workflows", requireAuth, async (req, res) => {
   const b = req.body || {};
   if (!b.name) return res.status(400).json({ error: "name is required" });
 
-  // Attach creator (Auth0 sub) for future ownership logic
   const created_by = req.auth?.sub || null;
 
   const { data, error } = await supabase
     .from("workflows")
-    .insert([{
-      name: b.name,
-      description: b.description || "",
-      status: b.status || "active",
-      progress: Number.isFinite(b.progress) ? b.progress : 0,
-      tasks: Number.isFinite(b.tasks) ? b.tasks : 0,
-      members: Number.isFinite(b.members) ? b.members : 1,
-      category: b.category || null,
-      last_updated_label: b.lastUpdatedLabel || "just now",
-      created_by
-    }])
+    .insert([
+      {
+        name: b.name,
+        description: b.description || "",
+        status: b.status || "active",
+        progress: Number.isFinite(b.progress) ? b.progress : 0,
+        tasks: Number.isFinite(b.tasks) ? b.tasks : 0,
+        members: Number.isFinite(b.members) ? b.members : 1,
+        category: b.category || null,
+        last_updated_label: b.lastUpdatedLabel || "just now",
+        created_by,
+      },
+    ])
     .select()
     .single();
 
@@ -209,7 +222,7 @@ app.post("/api/v1/workflows", async (req, res) => {
   res.status(201).json(data);
 });
 
-/* UPDATE: PATCH /api/v1/workflows/:id  (protected) */
+// UPDATE (protected)
 app.patch("/api/v1/workflows/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const patch = req.body || {};
@@ -231,13 +244,14 @@ app.patch("/api/v1/workflows/:id", requireAuth, async (req, res) => {
     .single();
 
   if (error) {
-    if (error.code === "PGRST116") return res.status(404).json({ error: "not found" });
+    if (error.code === "PGRST116")
+      return res.status(404).json({ error: "not found" });
     return res.status(500).json({ error: error.message });
   }
   res.json(data);
 });
 
-/* DELETE: DELETE /api/v1/workflows/:id  (protected) */
+// DELETE (protected)
 app.delete("/api/v1/workflows/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from("workflows").delete().eq("id", id);
@@ -245,159 +259,70 @@ app.delete("/api/v1/workflows/:id", requireAuth, async (req, res) => {
   res.status(204).end();
 });
 
-
-// --- Multi-Platform Integrations ---------------------------------------------------
-
-// GET /api/v1/workflows/:workflowId/integrations
-app.get("/api/v1/workflows/:workflowId/integrations", async (req, res) => {
-  const { workflowId } = req.params;
-  // For now, return mock integrations since table doesn't exist
-  res.json({
-    integrations: [
-      {
-        id: "github-1",
-        platform: "github",
-        config: { repo: "facebook/react" },
-        status: "active",
-        created_at: new Date().toISOString()
-      }
-    ]
-  });
-});
-
-// POST /api/v1/workflows/:workflowId/integrations
-app.post("/api/v1/workflows/:workflowId/integrations", async (req, res) => {
-  const { workflowId } = req.params;
-  const { platform, config } = req.body;
-
-  if (!platform || !config) {
-    return res.status(400).json({ error: "platform and config are required" });
-  }
-
-  // Mock response for now
-  const integration = {
-    id: `${platform}-${Date.now()}`,
-    workflow_id: workflowId,
-    platform,
-    config,
-    status: "active",
-    created_by: "test-user",
-    created_at: new Date().toISOString()
-  };
-
-  res.status(201).json(integration);
-});
-
-// DELETE /api/v1/workflows/:workflowId/integrations/:integrationId
-app.delete("/api/v1/workflows/:workflowId/integrations/:integrationId", requireAuth, async (req, res) => {
-  const { integrationId } = req.params;
-  const { error } = await supabase
-    .from("workflow_integrations")
-    .delete()
-    .eq("id", integrationId);
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(204).end();
-});
-
-// POST /api/v1/integrations/sync/:workflowId
-app.post("/api/v1/integrations/sync/:workflowId", async (req, res) => {
-  const { workflowId } = req.params;
-
-  try {
-    // Mock sync response
-    res.json({
-      results: [
-        {
-          platform: "github",
-          synced: 5,
-          success: true
-        }
-      ],
-      totalSynced: 5
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Helper functions for syncing different platforms
-async function syncGitHubActivities(config) {
-  const { repo, token } = config;
-  const activities = [];
-
-  try {
-    const response = await fetch(`https://api.github.com/repos/${repo}/events?per_page=30`, {
-      headers: { Authorization: `Bearer ${token}`, "User-Agent": "syncly-importer" }
-    });
-
-    if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
-
-    const events = await response.json();
-
-    for (const event of events) {
-      activities.push({
-        workspace_id: "demo",
-        provider: "github",
-        type: event.type.toLowerCase(),
-        title: `${event.type} by ${event.actor.login}`,
-        description: event.payload?.commits?.[0]?.message || event.type,
-        url: event.repo.url,
-        actor: event.actor.login,
-        metadata: event,
-        occurred_at: event.created_at
-      });
-    }
-  } catch (error) {
-    console.error("GitHub sync error:", error);
-  }
-
-  return activities;
-}
-
-async function syncSlackActivities(config) {
-  const { webhook_url, channel } = config;
-  // For now, return empty array - would need Slack API integration
-  return [];
-}
-
-async function syncTrelloActivities(config) {
-  const { board_id, api_key, token } = config;
-  // For now, return empty array - would need Trello API integration
-  return [];
-}
-
-async function syncJiraActivities(config) {
-  const { project_key, email, api_token, domain } = config;
-  // For now, return empty array - would need Jira API integration
-  return [];
-}
-
-// GET /integrations/github/import?since=2025-10-01T00:00:00Z
+// -----------------------------------------------------
+// GitHub Importer (public during dev; add requireAuth if you want)
+// - Groups by issue/PR (owner/repo#number) or repo
+// -----------------------------------------------------
 app.get("/integrations/github/import", async (req, res) => {
   try {
-    const since = req.query.since || new Date(Date.now() - 7*24*3600*1000).toISOString();
-    const repo = process.env.GITHUB_REPO;
-    const token = process.env.GITHUB_TOKEN;
+    const repo = (req.query.repo || process.env.GITHUB_REPO || "").trim(); // e.g. anthropics/claude-cookbooks
+    const since =
+      req.query.since ||
+      new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+    const ghToken = process.env.GITHUB_TOKEN || "";
     const workspaceId = process.env.WORKSPACE_ID || "demo";
 
-    if (!repo || !token) return res.status(400).json({ error: "GITHUB_REPO and GITHUB_TOKEN required" });
+    if (!repo || !repo.includes("/")) {
+      return res
+        .status(400)
+        .json({ error: "GITHUB_REPO not set or invalid (expected owner/repo)" });
+    }
+    const [owner, repoName] = repo.split("/");
 
-    // 1) Issues (includes PRs as 'pull_request' field)
-    const issuesResp = await fetch(`https://api.github.com/repos/${repo}/issues?state=all&since=${encodeURIComponent(since)}&per_page=50`, {
-      headers: { Authorization: `Bearer ${token}`, "User-Agent": "syncly-importer" },
-    });
-    if (!issuesResp.ok) throw new Error(`GitHub issues HTTP ${issuesResp.status}`);
-    const issues = await issuesResp.json();
+    const gh = async (path) => {
+      const r = await _fetch(`https://api.github.com${path}`, {
+        headers: {
+          "User-Agent": "syncly-importer",
+          ...(ghToken ? { Authorization: `Bearer ${ghToken}` } : {}),
+          Accept: "application/vnd.github+json",
+        },
+      });
+      if (!r.ok) throw new Error(`GitHub HTTP ${r.status} ${path}`);
+      return r.json();
+    };
 
-    // 2) Map to activity_events rows
+    // Issues API returns both issues and PRs (PRs have pull_request)
+    const items = await gh(
+      `/repos/${repo}/issues?state=all&since=${encodeURIComponent(
+        since
+      )}&per_page=50`
+    );
+
     const rows = [];
-    for (const it of issues) {
+    for (const it of items) {
       const isPR = Boolean(it.pull_request);
       const type = isPR
-        ? (it.state === "closed" && it.pull_request?.merged_at ? "pr_merged"
-           : it.state === "closed" ? "pr_closed" : "pr_opened")
-        : (it.state === "closed" ? "issue_closed" : "issue_opened");
+        ? it.state === "closed" && it.pull_request?.merged_at
+          ? "pr_merged"
+          : it.state === "closed"
+          ? "pr_closed"
+          : "pr_opened"
+        : it.state === "closed"
+        ? "issue_closed"
+        : "issue_opened";
+
+      const hasNumber = Number.isFinite(it.number);
+      const context_type = hasNumber
+        ? isPR
+          ? "github:pr"
+          : "github:issue"
+        : "github:repo";
+      const context_id = hasNumber
+        ? `${owner}/${repoName}#${it.number}`
+        : `${owner}/${repoName}`;
+      const context_label = hasNumber
+        ? `${repoName} #${it.number}: ${it.title}`
+        : `${owner}/${repoName}`;
 
       rows.push({
         workspace_id: workspaceId,
@@ -407,37 +332,30 @@ app.get("/integrations/github/import", async (req, res) => {
         description: it.body?.slice(0, 10000) || null,
         url: it.html_url,
         actor: it.user?.login || null,
-        metadata: it, // raw payload
-        occurred_at: it.updated_at || it.created_at || new Date().toISOString(),
+        metadata: it,
+        occurred_at:
+          it.updated_at || it.created_at || new Date().toISOString(),
+        context_type,
+        context_id,
+        context_label,
       });
-
-      // Optional: upsert task_status summary
-      await supabase.from("task_status").upsert({
-        workspace_id: workspaceId,
-        provider: "github",
-        external_id: String(it.number),
-        title: it.title,
-        status: it.state === "open" ? "open" : (isPR && it.pull_request?.merged_at ? "merged" : "closed"),
-        assignee: it.assignee?.login || null,
-        url: it.html_url,
-        last_event_at: it.updated_at || it.created_at || null,
-      }, { onConflict: "workspace_id,provider,external_id" });
     }
 
-    // 3) Bulk insert activities
     if (rows.length) {
       const { error } = await supabase.from("activity_events").insert(rows);
       if (error) throw error;
     }
 
-    res.json({ imported: rows.length, since });
+    res.json({ imported: rows.length, repo, since });
   } catch (e) {
     console.error("[github import]", e);
-    res.status(500).json({ error: String(e.message || e) });
+    res.status(500).json({ error: e.message || String(e) });
   }
 });
 
-// GET /api/v1/activities
+// -----------------------------------------------------
+// Activity list (public)
+// -----------------------------------------------------
 app.get("/api/v1/activities", async (req, res) => {
   try {
     const workspaceId = process.env.WORKSPACE_ID || "demo";
@@ -635,20 +553,23 @@ app.post("/notify/slack/digest", requireAuth, async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
 
-  const blocks = (data || []).map(ev => `• *${ev.type}*: ${ev.title || "(no title)"} — _${ev.actor || "unknown"}_`).join("\n");
+  const blocks = (data || [])
+    .map(
+      (ev) =>
+        `• *${ev.type}*: ${ev.title || "(no title)"} — _${ev.actor || "unknown"}_`
+    )
+    .join("\n");
 
-  const payload = {
-    text: "Syncly Digest",
-    blocks: [
-      { type: "section", text: { type: "mrkdwn", text: "*Syncly — Latest Activity*" } },
-      { type: "section", text: { type: "mrkdwn", text: blocks || "No recent activity." } },
-    ],
-  };
-
-  const resp = await fetch(process.env.SLACK_WEBHOOK_URL, {
+  const resp = await _fetch(process.env.SLACK_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      text: "Syncly Digest",
+      blocks: [
+        { type: "section", text: { type: "mrkdwn", text: "*Syncly — Latest Activity*" } },
+        { type: "section", text: { type: "mrkdwn", text: blocks || "No recent activity." } },
+      ],
+    }),
   });
 
   if (!resp.ok) return res.status(500).json({ error: `Slack ${resp.status}` });
@@ -666,4 +587,105 @@ if (require.main === module) {
   });
 }
 
+// -----------------------------------------------------
+// Slack importer (public during dev; add requireAuth if you want)
+// - Groups by thread (channel:thread_ts) else by channel
+// -----------------------------------------------------
+async function slack(method, params, token) {
+  const q = new URLSearchParams(params).toString();
+  const r = await _fetch(`https://slack.com/api/${method}?${q}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return r.json();
+}
 
+app.get("/integrations/slack/import", async (req, res) => {
+  try {
+    const token = process.env.SLACK_BOT_TOKEN;
+    const channel = req.query.channel || process.env.SLACK_CHANNEL_ID;
+    const oldest =
+      req.query.oldest ||
+      String((Date.now() - 7 * 24 * 3600 * 1000) / 1000);
+    const limit = Number(req.query.limit || 100);
+    const wsId = process.env.WORKSPACE_ID || "demo";
+
+    if (!token || !channel) {
+      return res.status(400).json({ error: "SLACK_BOT_TOKEN or channel missing" });
+    }
+
+    // ensure bot is in channel
+    let hist = await slack("conversations.history", { channel, oldest, limit }, token);
+    if (!hist.ok && hist.error === "not_in_channel") {
+      const joined = await slack("conversations.join", { channel }, token);
+      if (!joined.ok) throw new Error(`join failed: ${joined.error}`);
+      hist = await slack("conversations.history", { channel, oldest, limit }, token);
+    }
+    if (!hist.ok) throw new Error(`Slack history error: ${hist.error}`);
+
+    // channel label
+    const cinfo = await slack("conversations.info", { channel }, token);
+    const channelName = cinfo?.ok ? (cinfo.channel?.name || channel) : channel;
+
+    const rows = [];
+    const userCache = new Map();
+
+    for (const m of hist.messages || []) {
+      if (!m.text) continue;
+
+      // actor
+      let actor = "bot";
+      if (m.user) {
+        if (!userCache.has(m.user)) {
+          const u = await slack("users.info", { user: m.user }, token);
+          userCache.set(
+            m.user,
+            u.ok ? (u.user.profile?.real_name || u.user.name || m.user) : m.user
+          );
+        }
+        actor = userCache.get(m.user);
+      }
+
+      // context
+      const isThread = Boolean(m.thread_ts);
+      const context_type = isThread ? "slack:thread" : "slack:channel";
+      const context_id = isThread ? `${channel}:${m.thread_ts}` : channel;
+      const context_label = isThread
+        ? `#${channelName} • thread ${m.thread_ts}`
+        : `#${channelName}`;
+
+      rows.push({
+        workspace_id: wsId,
+        provider: "slack",
+        type: "message",
+        title: m.text.slice(0, 140),
+        description: m.text,
+        url: null,
+        actor,
+        metadata: m,
+        occurred_at: new Date(
+          Number((m.ts || "0").split(".")[0]) * 1000
+        ).toISOString(),
+        context_type,
+        context_id,
+        context_label,
+      });
+    }
+
+    if (rows.length) {
+      const { error } = await supabase.from("activity_events").insert(rows);
+      if (error) throw error;
+    }
+
+    res.json({ imported: rows.length, channel, oldest, limit });
+  } catch (e) {
+    console.error("[slack import]", e);
+    res.status(500).json({ error: e.message || String(e) });
+  }
+});
+
+// -----------------------------------------------------
+// Start server
+// -----------------------------------------------------
+app.listen(PORT, () => {
+  console.log(`Syncly backend listening on port ${PORT}`);
+});

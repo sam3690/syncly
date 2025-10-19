@@ -1,0 +1,49 @@
+{
+  "request_id": "e94b68df-1f04-4f7a-a104-67c38f8fb873",
+  "project_name": "Syncly Agent Rollout",
+  "generated_at": "2025-10-18T09:00:00Z",
+  "requester": "program-management-bot",
+  "milestones": [
+    {
+      "name": "MVP Delivery",
+      "status": "on_track",
+      "due_date": "2025-10-28"
+    },
+    {
+      "name": "Automation Integration",
+      "status": "at_risk",
+      "due_date": "2025-11-04"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "ENG-142",
+      "title": "Wire backend callback",
+      "owner": "L. Diaz",
+      "status": "in_progress",
+      "due_date": "2025-10-20",
+      "confidence": 70
+    },
+    {
+      "task_id": "QA-19",
+      "title": "Draft mitigation scenarios",
+      "owner": "P. Malik",
+      "status": "pending",
+      "due_date": "2025-10-22",
+      "confidence": 60
+    },
+    {
+      "task_id": "OPS-7",
+      "title": "Enable logging sinks",
+      "owner": "A. Sloan",
+      "status": "complete",
+      "due_date": "2025-10-10",
+      "confidence": 95
+    }
+  ],
+  "metrics": {
+    "velocity": 11.2,
+    "burn_down_delta": -0.8,
+    "quality_pass_rate": 0.92
+  }
+}

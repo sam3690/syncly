@@ -23,3 +23,20 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  agents:
+    build:
+      context: ../agents
+      dockerfile: Dockerfile
+    image: syncly-agents:local
+    restart: on-failure
+    env_file:
+      - ../agents/.env
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import sys; sys.exit(0)'" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: ["uv", "run", "syncly-agents", "tests/fixtures/project_status.json"]
